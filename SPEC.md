@@ -16,6 +16,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 - **Dates**: the phone decides the date. Entries carry the local date at logging; Shortcuts send the phone's date; summary requests send the phone's timestamp with its offset. The Worker never works out "today" for itself, except for the cost guard, which is a spending cap rather than user data (see Logging). Dates are `'YYYY-MM-DD'` strings, so daylight saving and travel never move an entry.
 - **Offline**: the app shell is cached by the service worker; the last-synced data is cached in IndexedDB, and the app opens offline read-only with "Last synced [time]" while that cache survives. Saving needs a connection. Offline, the Log screen keeps one draft, labelled "Not synced", which survives refreshes, navigation and failed saves; no app logic or failed request ever discards it. Safari clearing site data is a separate case, covered by backup and restore.
 - **Backup**: JSON export, and restore from a JSON backup (all or nothing, with a confirm naming the backup's date and record count). CSV export.
+- **Restore validation**: the Worker validates the whole backup file before writing anything: valid JSON, required fields, duplicate ids, and references between foods, recipes, batches, pots and entries. It then writes it in one D1 batch, so it runs as one transaction. A rejected or failed restore leaves the database exactly as it was and says "Nothing changed: …".
 
 ## Numbers and units
 
@@ -88,12 +89,12 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 - A target never goes below the floor in Settings (default 1,500 kcal).
 - A protein target in grams; carbs and fat targets optional.
 - **Trend weight**: an exponential moving average, α = 0.1 a day, carried forward across missing days. The trend shows first and the day's reading second.
-- **Maintenance estimate** = average intake on complete days in the last 28 days − 7,700 × trend change over the window (kg) ÷ days in the window. It uses only days marked complete, needs at least 14 of them and 8 weigh-ins, and until then says "Log 6 more complete days for a maintenance estimate." It moves at most 150 kcal a week and is shown with how it's counted: "~2,350 kcal, from 21 complete days and your weight trend."
+- **Maintenance estimate** = average intake on complete days in the last 28 days − 7,700 × trend change over the window (kg) ÷ days in the window. It uses only days marked complete, needs at least 14 of them and 8 weigh-ins. Until then it says what's still needed, built from the real state, showing each part only while it's needed: "Log 6 more complete days and add 2 more weigh-ins.", "Log 6 more complete days.", "Add 2 more weigh-ins." When both minimums are met, the estimate shows instead. It moves at most 150 kcal a week and is shown with how it's counted: "~2,350 kcal, from 21 complete days and your weight trend."
 
 ## Honest gaps
 
 - Each past day is unreviewed until marked complete or incomplete. Today is never marked.
-- The weekly review lists the week's unreviewed days with "Mark N Days Complete" as the one-tap answer, and asks separately about any day under 60% of its target: "Was Tuesday complete?" Days can also be marked from History.
+- The weekly review confirms the reviewed week's unflagged unreviewed days with one button, "Mark N Days Complete", showing the real count. Flagged days (under 60% of their target) are asked about separately: "Was Tuesday complete?" Days can also be marked from History.
 - Only complete days count in the maintenance estimate and the weekly average ("Average of 6 complete days"). Unreviewed and incomplete days keep their totals in History.
 
 ## Overview
@@ -106,9 +107,11 @@ The trend weight and today's reading; a 1 Month / 3 Months / All chart (trend li
 
 ## Weekly review
 
-- `GET /summary` (or `POST /summary` with `{ timestamp }`) returns plain text: this week's average kcal on complete days against target, the trend change, protein days, the To check count and the number of unreviewed days. A scheduled Sunday Shortcut shows it as a notification.
-- In the app, a "Weekly Review" card appears on Log from Sunday until completed:
-  1. Clear To check, and mark the week's days ("Mark N Days Complete", plus any flagged day).
+The review happens on Monday morning and covers the previous Monday to Sunday.
+
+- `GET /summary?date=` (or `POST /summary` with `{ timestamp }`) returns plain text about the week before the one the date falls in: the average kcal on complete days against target, the trend change, protein days, the To check count and the number of unreviewed days. A scheduled Monday morning Shortcut shows it as a notification.
+- In the app, a "Weekly Review" card appears on Log from Monday until completed. `reviews.id` is the Monday that starts the reviewed week.
+  1. Clear To check, and mark the reviewed week's days: unflagged unreviewed days with one button, "Mark N Days Complete", showing the real count; flagged days (under 60% of their target) one by one: "Was Tuesday complete?"
   2. See the week: average against target, protein days, trend change, top foods.
   3. Adaptive: the new estimate and target, with "Use 2,050 kcal" or "Keep 2,100 kcal". Fixed: the trend change against the goal rate ("Your trend fell 0.1 kg against a goal of 0.5 kg.") with one suggested target.
   Then "Done"; the toast says how many weeks in a row.
@@ -154,8 +157,13 @@ The trend weight and today's reading; a 1 Month / 3 Months / All chart (trend li
 - Adaptive target from the goal rate; the floor; the target changing only when accepted.
 - Headline: left and over, To check counted as estimates, exercise added back in fixed mode only.
 - Meal slot from the time.
-- Weekly summary figures: Monday to Sunday, the complete-day average, protein days, unreviewed count.
-- Cost guard: the 101st model call in a UTC day (parse, estimate or `POST /log`) is refused, whatever date the phone sends.
-- `PUT` with a body whose `id` differs from the URL's is rejected, and nothing changes.
+- Weekly summary figures: the previous Monday to Sunday, the complete-day average, protein days, unreviewed count.
 - The offline draft survives a refresh and a failed save, and is never discarded by app logic.
 - Restore replaces everything or nothing.
+- No route answers without a valid token.
+- PUT with mismatched URL and body ids is rejected and changes nothing.
+- Restore: malformed JSON, missing fields, duplicate ids, broken references and a failure partway through each leave the database unchanged.
+- Cost guard: the 101st model call in a day is refused; two simultaneous calls at a count of 99 let exactly one through; parse, estimate and `POST /log` all count; the count is keyed by the Worker's UTC date, whatever date the phone sends.
+- Weekly review and summary bounds: the previous Monday to Sunday, from a Monday timestamp in any offset.
+- The maintenance message counts days and weigh-ins correctly, showing each part only when needed.
+- "Mark N Days Complete" marks only unflagged unreviewed days in the reviewed week, and never today.

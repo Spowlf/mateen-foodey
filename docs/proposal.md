@@ -45,7 +45,7 @@ Every synced row also has `id` (client UUID unless stated), `updatedAt`, `delete
 | `weights` | date, grams, source (`manual`/`health`/`import`) | id = the date, so the latest of the day wins. |
 | `activity` | date, activeKcal, steps, source | id = the date; `/health` replaces it. |
 | `workouts` | date, start, type, minutes, kcal, source (`health`/`manual`), activityId | Health ones have id `health:<start>:<type>`, so a rerun adds nothing. Manual ones have a MET activity id from `data/activities.json`. |
-| `reviews` **(new)** | weekStart, completedAt | id = the Monday. Shows the card "until completed" and counts the weeks in a row. |
+| `reviews` **(new)** | weekStart, completedAt | id = the Monday that starts the reviewed week (the previous Monday to Sunday). The card shows on Log from Monday until this row exists, and it counts the weeks in a row. |
 | `settings` | value *json* | See below. |
 
 ### Worker only (not synced)
@@ -76,8 +76,8 @@ Every route needs `Authorization: Bearer <API_TOKEN>`; there is no unauthenticat
 | `POST /parse` | `{ text }` or `{ image: { mediaType, data } }` (base64 JPEG, ≤ 1,024 px) | `{ items: [{ name, quantity, unit, grams, gramsAssumed, state, food, matchedFrom, alternatives }], callsLeft }`. Steps 1 to 3 run on the Worker in one request. `food` is a matched or estimated food without an id; the phone gives it one when you log. The parse call and the estimate call each count against the cost guard. |
 | `POST /log` | `{ text, timestamp }` (the sentence Shortcut) | Text: "3 items to check: eggs, toast, flat white." Entries are saved as `toCheck`, origin `shortcut`, with ids from the timestamp, so a retry adds nothing. Its model calls count against the cost guard too. |
 | `POST /health` | `{ date, activeKcal, steps, weightKg, workouts: [{ start, type, minutes, kcal }] }` | Text: "Synced 12 Oct: 480 active kcal, 9,120 steps, 72.4 kg." |
-| `GET /summary?date=` / `POST /summary` | `{ timestamp }` | Text: the weekly summary |
-| `POST /restore` | a backup file | `{ rev, count }`, all or nothing |
+| `GET /summary?date=` / `POST /summary` | `{ timestamp }` | Text: the weekly summary for the week before the one the date falls in (the previous Monday to Sunday). The Monday morning Shortcut sends its timestamp, and its own offset picks the date. |
+| `POST /restore` | a backup file | `{ rev, count }`. The whole file is validated before anything is written: valid JSON, required fields, duplicate ids, and references between foods, recipes, batches, pots and entries. It's then written in one D1 batch (one transaction). A rejected or failed restore leaves the database exactly as it was: "Nothing changed: …". |
 
 The Claude call (Stage 2) asks for JSON through `output_config.format` (a JSON schema), at low effort, with your 30 most-logged foods in the prompt. The Worker validates what comes back: grams over 0 and at most 5,000 (otherwise grams are left blank for you to enter), unknown fields dropped, and no nutrition accepted from the parse step. A `refusal` stop reason gets "Nothing changed: …", and Haiku has no fallback model. Before every model call, the Worker takes one of the day's 100 with the `parseCalls` statement above; if none is left, it makes no call.
 
@@ -97,13 +97,13 @@ Stage 1, each with tests for its named rules:
 | `recipes.js` | Batch totals carrying unknowns and estimates, finished weight (sum / weighed less pot), per-gram and per-portion with the remainder in the last, grams left (never below zero) |
 | `exercise.js` | (MET − 1) × kg × hours; a day's exercise (Health active energy wins over manual workouts) |
 | `weight.js` | Trend weight (α = 0.1 a day, carried across gaps); kg / st lb |
-| `maintenance.js` | 28-day estimate from complete days, the minimums (14 days, 8 weigh-ins) and "Log 6 more complete days…", the 150 kcal weekly cap, worked out week by week from the data so nothing extra is stored |
+| `maintenance.js` | 28-day estimate from complete days, the minimums (14 days, 8 weigh-ins) and the message built from what's still needed ("Log 6 more complete days and add 2 more weigh-ins.", each part only while it's needed), the 150 kcal weekly cap, worked out week by week from the data so nothing extra is stored |
 | `targets.js` | A day's target: fixed plus exercise added back, or adaptive (estimate ± rate × 7,700 ÷ 7), never below the floor |
 | `headline.js` | "~1,240 kcal left today." / "180 kcal over today.", protein to go, To check counted as estimates |
-| `days.js` | Complete / incomplete / unreviewed; days under 60% of their target |
-| `summary.js` | The week Monday to Sunday: average of complete days, protein days, trend change, To check and unreviewed counts, and the text |
+| `days.js` | Complete / incomplete / unreviewed; days under 60% of their target (flagged); the days "Mark N Days Complete" marks: the reviewed week's unflagged unreviewed days, never today |
+| `summary.js` | The reviewed week (the previous Monday to Sunday, from any date or timestamp): average of complete days, protein days, trend change, To check and unreviewed counts, and the text |
 | `draft.js` | The Log draft (copied pattern) |
-| `export.js` | Backup check and CSV |
+| `export.js` | CSV, and the backup check that `/restore` runs before writing anything: shape, required fields, duplicate ids and references between foods, recipes, batches, pots and entries |
 | `index.js` | Re-exports |
 
 Later stages add `overview.js` (5), `history.js` (6) and `review.js` (7). The Worker's `/health` handling (Stage 2) uses `exercise.js`, `nutrition.js` and `summary.js`, so it adds no engine module of its own.
