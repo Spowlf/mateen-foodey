@@ -61,6 +61,8 @@ export function makeWorker({ now = NOW, env: extra = {}, routes = {}, model = nu
       const body = type.includes('json') ? await res.json() : await res.text();
       return { status: res.status, body, headers: res.headers };
     },
+    /** A fetch that reaches this Worker, for testing the app's API client against it. */
+    fetch: async (url, init) => handle(new Request(url, init), env, w.deps()),
     /** Rows straight from the database, skipping the API. */
     rows: (table, where = '1 = 1', ...params) => env.DB.raw.prepare(`SELECT * FROM "${table}" WHERE ${where}`).all(...params).map((r) => ({ ...r })),
     /** Runs SQL straight on the database. */

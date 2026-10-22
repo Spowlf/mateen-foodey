@@ -1,0 +1,427 @@
+/* Mateen Foodey. All visual values are tokens on :root; components never use raw colours.
+   Copied from Mateen Money's styles.css with the green accent (docs/decisions.md) and its money-only parts removed. */
+
+:root {
+  --paper: #F2F7F4;
+  --surface: #FFFFFF;
+  --ink: #172A20;
+  --ink-2: #4D6357;
+  --line: #D2E3D9;
+  --accent: #1D7A4C;
+  --accent-press: #17653F;
+  --on-accent: #FFFFFF;
+  --accent-soft: #DCEFE4;
+  --warn: #8F5E0E;
+  --warn-soft: #FDF0D9;
+  --danger: #A3261B;
+  --danger-soft: #FBE3DF;
+  --backdrop: rgb(13 21 17 / 0.45);
+  /* Behind a segmented control: the chosen segment is the surface colour on it. */
+  --track: var(--line);
+  /* Behind the iOS status bar if it ever overlaps the page (with "black" it sits above it, and the strip is 0 high). */
+  --status-bar: #172A20;
+  /* The headline is the one raised surface on Log: it holds the answer. Neutral, never tinted. */
+  --shadow-raised: 0 1px 2px rgb(23 42 32 / 0.06), 0 6px 16px -6px rgb(23 42 32 / 0.16);
+  --shadow-float: 0 2px 6px rgb(23 42 32 / 0.08), 0 20px 48px -12px rgb(23 42 32 / 0.32);
+
+  --font-text: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Rounded on Apple devices; elsewhere the system sans. */
+  --font-num: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Five text styles: screen title (--t-xl), section heading (--t-l), body (--t-m), small print (--t-s)
+     and the number style (--font-num, tabular, 800; --t-xxl only for the grams being typed). */
+  --t-s: 0.9375rem;   /* 15: small print */
+  --t-m: 1.0625rem;   /* 17: body; stops iOS zooming on focus */
+  --t-l: 1.375rem;    /* 22: section heading */
+  --t-xl: 2.125rem;   /* 34: screen title and the answer's figure */
+  --t-xxl: 3.5rem;    /* 56: the grams being typed */
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --r-control: 12px;
+  --r-panel: 22px;
+  --touch: 48px;
+  --tabbar: 64px;
+  /* Below the tab bar: the home indicator's safe area less 14px, so the labels sit clear of it. 0 on phones without one. */
+  --tabbar-inset: max(calc(env(safe-area-inset-bottom) - 14px), 0px);
+  /* Motion only explains a change of state, with no overshoot. */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0D1511;
+    --surface: #15211A;
+    --ink: #E7F3EC;
+    --ink-2: #A2B9AC;
+    --line: #213429;
+    --accent: #6DD39C;
+    --accent-press: #55C287;
+    --on-accent: #06200F;
+    --accent-soft: #1B3A29;
+    --warn: #EDBA62;
+    --warn-soft: #3A2A14;
+    --danger: #FF8F80;
+    --danger-soft: #45201B;
+    --track: var(--paper);
+    --status-bar: var(--paper);
+    --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 16px -6px rgb(0 0 0 / 0.5);
+    --shadow-float: 0 2px 6px rgb(0 0 0 / 0.4), 0 20px 48px -12px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
+  }
+}
+
+/* Base. Hover styles sit in @media (hover: hover), so on a phone a tapped control never stays highlighted. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  margin: 0; height: 100dvh;
+  display: flex; flex-direction: column;
+  background: var(--paper); color: var(--ink);
+  font: var(--t-m)/1.5 var(--font-text);
+}
+h1, h2, h3, p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { -webkit-user-select: none; user-select: none; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+/* A quick second tap is a tap, never a zoom, anywhere on the page. */
+* { touch-action: manipulation; }
+body::before {
+  content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+  height: env(safe-area-inset-top); background: var(--status-bar); pointer-events: none;
+}
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Shell */
+
+.top {
+  max-width: 560px; margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + var(--s4)) var(--s4) var(--s3);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3);
+}
+.top h1 { font: 700 var(--t-xl)/1.1 var(--font-num); letter-spacing: -0.02em; }
+.synced { font-size: var(--t-s); color: var(--ink-2); margin-top: var(--s1); }
+.scroller { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+main {
+  max-width: 560px; margin: 0 auto;
+  padding: 0 var(--s4) var(--s6);
+}
+.screen { display: grid; gap: var(--s5); }
+
+.tabs {
+  flex: none; position: relative; z-index: 10;
+  /* Five tabs: each as wide as its label, the spare space shared between them so no two labels touch. */
+  display: grid; grid-template-columns: repeat(5, auto); justify-content: space-evenly;
+  padding-bottom: var(--tabbar-inset);
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+}
+.tabs a {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: var(--tabbar); color: var(--ink-2); text-decoration: none;
+  font-size: var(--t-s); font-weight: 600; line-height: 1.2; white-space: nowrap;
+}
+.tabs svg { width: 56px; height: 28px; padding: 2px 16px; border-radius: 999px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+@media (hover: hover) { .tabs a:hover { color: var(--ink); } }
+.tabs a:active { color: var(--accent-press); background: var(--accent-soft); }
+.tabs a[aria-current] { color: var(--accent); }
+/* The tab you're on: a pill behind its icon as well as the colour. */
+.tabs a[aria-current] svg { background: var(--accent-soft); }
+.tabs a:focus-visible { outline-offset: -3px; }
+@media (max-width: 359px) { .tabs svg { width: 40px; padding: 2px 8px; } .tabs a { letter-spacing: -0.02em; font-size: calc(var(--t-s) - 1px); } }
+.badge {
+  position: absolute; top: 6px; left: calc(50% + 6px);
+  min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent);
+  font: 700 var(--t-s)/20px var(--font-num); text-align: center;
+}
+
+/* The headline: the one raised surface on Log. Over a target is said in plain ink, never red. */
+
+.headline {
+  padding: var(--s4);
+  background: var(--surface);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-raised);
+  display: grid; gap: var(--s2);
+}
+.headline-figure { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--s2); }
+.headline-figure .num { font: 800 var(--t-xl)/1 var(--font-num); letter-spacing: -0.03em; }
+.headline-figure .unit { font-size: var(--t-m); font-weight: 600; color: var(--ink-2); }
+.headline-protein { font-weight: 600; }
+.reason { font-size: var(--t-s); color: var(--ink-2); }
+/* Not connected yet: one slim line in place of the headline. */
+.connect-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: var(--s1) var(--s1) var(--s1) var(--s3); border-radius: var(--r-control);
+  background: var(--accent-soft); font-size: var(--t-s); font-weight: 600;
+}
+.connect-banner > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.connect-banner .text-button { margin: 0; flex: none; }
+
+/* The figure changed (after a log or a sync): it eases into its new value. */
+.headline-figure .num.changed { animation: changed 0.3s var(--ease-out); }
+@keyframes changed { from { opacity: 0.3; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* A sheet opening comes up from the bottom, where it closes to. */
+@keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Sections */
+
+.section { display: grid; gap: var(--s3); }
+.subhead { display: flex; align-items: center; gap: var(--s2); font: 700 var(--t-l)/1.1 var(--font-num); letter-spacing: -0.02em; }
+
+/* Lists */
+
+.list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 16px; overflow: hidden; }
+.list > li + li { border-top: 1px solid var(--line); }
+.list-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  width: 100%; min-height: 60px; padding: var(--s3) var(--s4);
+  border: 0; background: transparent; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .list-row:hover { background: color-mix(in srgb, var(--surface) 90%, var(--accent-soft)); } }
+.list-row:active { background: var(--accent-soft); }
+.list-row:focus-visible { outline-offset: -3px; }
+.list-main { display: grid; min-width: 0; }
+.list-title { font-weight: 600; overflow-wrap: anywhere; }
+.list-sub { font-size: var(--t-s); color: var(--ink-2); }
+.list-amount { font-family: var(--font-num); font-weight: 700; flex: none; }
+.list-end { display: grid; justify-items: end; flex: none; text-align: right; }
+.empty-line { color: var(--ink-2); padding: var(--s3) 0; }
+
+/* To check: each row's one-tap Confirm sits beside it, never behind a swipe. */
+.check-row { display: flex; align-items: center; padding-right: var(--s3); }
+.check-row .list-row { flex: 1; min-width: 0; }
+.check-row .text-button { margin: 0; flex: none; }
+
+/* The add field: one box for a sentence, a food's name or a barcode, with the photo button beside it. */
+
+.add { display: grid; gap: var(--s3); }
+.add-box { display: grid; grid-template-columns: 1fr auto; gap: var(--s2); align-items: start; }
+.add-box textarea { min-height: var(--touch); padding: var(--s3); resize: none; line-height: 1.4; field-sizing: content; max-height: 40dvh; }
+.add-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); }
+.add-actions .button.primary { width: auto; flex: 1 1 auto; padding: 0 var(--s4); }
+.not-synced { display: flex; align-items: baseline; gap: var(--s2); font-size: var(--t-s); color: var(--ink-2); }
+.not-synced .tag { flex: none; white-space: nowrap; }
+.results { display: grid; gap: var(--s2); }
+
+/* Chips */
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.chip {
+  min-height: 40px; padding: 0 var(--s4);
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); font-size: var(--t-s); font-weight: 600; cursor: pointer;
+}
+@media (hover: hover) { .chip:hover { border-color: var(--ink-2); } }
+.chip:active { border-color: var(--accent); background: var(--accent-soft); }
+.chip[aria-checked="true"], .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.chip:disabled { background: var(--paper); color: var(--ink-2); border-style: dashed; cursor: default; }
+/* The four meals share one row, so the slot reads at a glance. */
+.chips:has(.chip.fit) { flex-wrap: nowrap; }
+.chip.fit { flex: 1 1 0; min-width: 0; padding: 0 var(--s2); }
+@media (max-width: 359px) { .chips:has(.chip.fit) { flex-wrap: wrap; } .chip.fit { flex: 1 1 auto; } }
+/* A quick-log chip: the food and its usual portion. */
+.chip .chip-sub { margin-left: var(--s1); color: var(--ink-2); font-weight: 600; }
+.chip[aria-pressed="true"] .chip-sub { color: inherit; }
+
+/* Segmented control: switches what the screen shows (never a value being picked). */
+
+.segmented {
+  display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 2px;
+  padding: 3px; border-radius: var(--r-control); background: var(--track); box-shadow: inset 0 0 0 1px var(--line);
+}
+.segment {
+  min-height: 40px; padding: 0 var(--s2); border: 0; border-radius: 9px;
+  background: transparent; color: var(--ink-2); font-size: var(--t-s); font-weight: 600; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+}
+@media (hover: hover) { .segment:hover { background: color-mix(in srgb, var(--track) 50%, var(--surface)); color: var(--ink); } }
+.segment:active { background: var(--surface); color: var(--ink); }
+.segment[aria-checked="true"] { background: var(--accent); color: var(--on-accent); }
+.segment:focus-visible { outline-offset: -2px; }
+
+/* The number pad, for grams */
+
+.pad-display {
+  display: flex; align-items: baseline; justify-content: center; gap: var(--s2);
+  padding: var(--s3) 0 var(--s1); font-family: var(--font-num);
+}
+.pad-display .num { font-size: var(--t-xxl); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.pad-display .num.placeholder { color: var(--ink-2); }
+.pad-display .unit { font: 700 var(--t-l) var(--font-num); color: var(--ink-2); }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); }
+.key {
+  min-height: 56px; border: 0; border-radius: 16px; background: var(--surface);
+  font: 700 var(--t-l) var(--font-num); cursor: pointer;
+}
+@media (hover: hover) { .key:hover { background: color-mix(in srgb, var(--surface) 90%, var(--accent-soft)); } }
+.key:active { background: var(--accent-soft); color: var(--accent-press); }
+.key:disabled { background: transparent; cursor: default; }
+.summary { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); font-size: var(--t-s); color: var(--ink-2); }
+
+/* The check sheet: one card per item, what's uncertain said on it. */
+
+.lines { display: grid; gap: var(--s3); }
+.line { display: grid; gap: var(--s2); padding: var(--s3) var(--s4); background: var(--surface); border-radius: 16px; }
+.line-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+.line-head .list-main { flex: 1; }
+.line-grams {
+  flex: none; min-height: var(--touch); min-width: 88px; padding: 0 var(--s3);
+  border: 1px solid var(--line); border-radius: var(--r-control); background: var(--paper);
+  font: 700 var(--t-m) var(--font-num); cursor: pointer;
+}
+@media (hover: hover) { .line-grams:hover { border-color: var(--ink-2); } }
+.line-grams:active { border-color: var(--accent); background: var(--accent-soft); }
+.line-grams.missing { border-style: dashed; color: var(--ink-2); font-family: var(--font-text); font-size: var(--t-s); }
+.line-match {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s2); width: 100%;
+  min-height: 40px; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer;
+  color: var(--accent); font-weight: 600; font-size: var(--t-s);
+}
+.line-match:active { color: var(--accent-press); }
+@media (hover: hover) { .line-match:hover { color: var(--accent-press); } }
+.line-match svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.line-tags { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.line-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.line-foot .text-button { margin: 0 calc(-1 * var(--s3)) 0 0; }
+
+/* Fields */
+
+.field { display: grid; gap: var(--s1); }
+.field-label { font-size: var(--t-s); font-weight: 600; color: var(--ink-2); }
+.field-hint { font-size: var(--t-s); color: var(--ink-2); }
+.input, .select {
+  width: 100%; min-height: var(--touch); padding: 0 var(--s3);
+  border: 1px solid var(--line); border-radius: var(--r-control);
+  background: var(--surface); font-size: var(--t-m);
+}
+@media (hover: hover) { .input:hover, .select:hover { border-color: var(--ink-2); } }
+.input:focus-visible, .select:focus-visible { outline-offset: 0; border-color: var(--accent); }
+.input[readonly], .select:disabled { background: var(--paper); color: var(--ink-2); }
+.select {
+  appearance: none; padding-right: var(--s6);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%), linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px; background-repeat: no-repeat;
+}
+.row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3); }
+.row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); }
+
+/* Buttons: one primary (filled) and one secondary (text) style. Danger is the secondary style in red. */
+
+.button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  width: 100%; border-radius: 14px; font-weight: 700; cursor: pointer;
+}
+.button.primary { min-height: 52px; border: 0; background: var(--accent); color: var(--on-accent); font-size: var(--t-m); }
+.button.primary:active { background: var(--accent-press); }
+@media (hover: hover) { .button.primary:hover { background: var(--accent-press); } }
+.button.primary:disabled { background: var(--line); color: var(--ink-2); cursor: default; }
+.text-button {
+  min-height: 40px; padding: 0 var(--s3); margin-left: calc(-1 * var(--s3));
+  border: 0; border-radius: 10px; background: transparent; color: var(--accent); font-weight: 700; cursor: pointer;
+}
+.text-button:active { background: var(--accent-soft); color: var(--accent-press); }
+@media (hover: hover) { .text-button:hover { background: var(--accent-soft); color: var(--accent-press); } }
+.text-button:disabled { color: var(--ink-2); background: transparent; cursor: default; }
+.text-button.danger { color: var(--danger); }
+.text-button.danger:active { background: var(--danger-soft); color: var(--danger); }
+@media (hover: hover) { .text-button.danger:hover { background: var(--danger-soft); color: var(--danger); } }
+.link-row { display: flex; flex-wrap: wrap; column-gap: var(--s5); }
+.icon-button {
+  display: inline-grid; place-items: center; flex: none;
+  width: var(--touch); height: var(--touch); border: 0; border-radius: 50%;
+  background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.icon-button:active { background: var(--accent-soft); color: var(--ink); }
+@media (hover: hover) { .icon-button:hover { background: var(--accent-soft); color: var(--ink); } }
+.icon-button:disabled { opacity: 0.35; cursor: default; background: transparent; }
+/* The photo button beside the add box: as tall as the box, on the surface like it. */
+.icon-button.boxed { border-radius: var(--r-control); background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+/* The Settings gear: a quiet filled circle, accent-tinted while Settings is open. */
+#settings { background: var(--surface); }
+#settings[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+#settings:focus:not(:focus-visible) { outline: none; }
+#settings:active { background: var(--accent-soft); color: var(--ink); }
+@media (hover: hover) { #settings:hover { background: var(--accent-soft); color: var(--ink); } }
+.icon-button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Hints, warnings, tags */
+
+.hint, .warning { font-size: var(--t-s); padding: var(--s2) var(--s3); border-radius: 10px; }
+.hint { background: var(--accent-soft); }
+/* A warning sits on the surface it's in, marked by an amber rule at its start. */
+.warning { background: none; border-left: 3px solid var(--warn); border-radius: 0; color: var(--ink); }
+.tag {
+  display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft);
+  color: var(--ink); font: 600 var(--t-s)/1.4 var(--font-text); letter-spacing: 0;
+}
+/* What's estimated: amber, "careful, check this". */
+.tag.tag-warn { background: var(--warn-soft); color: var(--warn); }
+.tag.tag-quiet { background: var(--paper); color: var(--ink-2); }
+.empty { display: grid; gap: var(--s3); padding: var(--s4) 0 var(--s6); }
+.empty h2 { font: 700 var(--t-l)/1.1 var(--font-num); letter-spacing: -0.02em; }
+.empty p { max-width: 34ch; color: var(--ink-2); }
+
+/* Sheets */
+
+.sheet {
+  width: 100%; max-width: 560px; max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - var(--s2))); margin: auto auto 0;
+  padding: 0 var(--s4) calc(env(safe-area-inset-bottom) + var(--s4));
+  border: 0; border-radius: var(--r-panel) var(--r-panel) 0 0;
+  background: var(--paper); color: var(--ink); box-shadow: var(--shadow-float); overflow-y: auto;
+}
+.sheet[open] { animation: rise 0.25s var(--ease-out); }
+.sheet::backdrop { background: var(--backdrop); }
+.sheet-head {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: var(--s4) 0 var(--s2); background: var(--paper);
+}
+.sheet-head h2 { font: 700 var(--t-l)/1.1 var(--font-num); letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.sheet-form { display: grid; gap: var(--s4); }
+.sheet-actions { display: grid; gap: var(--s2); margin-top: var(--s4); position: sticky; bottom: 0; padding-top: var(--s2); background: var(--paper); }
+
+/* Toast and update pill */
+
+#toast {
+  position: fixed; left: var(--s4); right: var(--s4); z-index: 20;
+  bottom: calc(var(--tabbar) + var(--tabbar-inset) + var(--s3));
+  max-width: 528px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: var(--s3) var(--s4); border-radius: 14px;
+  background: var(--ink); color: var(--paper); font-size: var(--t-s); box-shadow: var(--shadow-float);
+  opacity: 0; transform: translateY(12px); pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s var(--ease-out);
+}
+#toast.show { opacity: 1; transform: none; pointer-events: auto; }
+.toast-action {
+  flex: none; min-height: 40px; padding: 0 var(--s3); border: 0; border-radius: 10px;
+  background: transparent; color: var(--accent-soft); font-weight: 700; cursor: pointer;
+}
+.toast-action:active { background: color-mix(in srgb, var(--ink) 80%, var(--paper)); }
+@media (hover: hover) { .toast-action:hover { background: color-mix(in srgb, var(--ink) 80%, var(--paper)); } }
+.update {
+  position: fixed; top: calc(env(safe-area-inset-top) + var(--s2)); left: 50%; z-index: 30;
+  min-height: 40px; padding: 0 var(--s4); border: 0; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent); font: 600 var(--t-s) var(--font-text);
+  box-shadow: var(--shadow-float); cursor: pointer; transform: translateX(-50%);
+}
+.update:active { background: var(--accent-press); }
+@media (hover: hover) { .update:hover { background: var(--accent-press); } }
+
+/* Figures always line up. */
+.num, .list-amount, .key, .pad-display, .badge, .headline, .line-grams {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

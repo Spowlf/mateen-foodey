@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <!-- Only the app's own files run. connect-src allows https: because the backend address is typed into Settings; localhost is for npm run dev. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="Log what you eat in a sentence and see what's left today.">
+  <meta name="theme-color" content="#F2F7F4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0D1511" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Foodey">
+  <title>Mateen Foodey</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="src/app.js"></script>
+  <!-- Every module app.js imports, fetched at once rather than level by level as imports are found (a test checks this). -->
+  <link rel="modulepreload" href="src/db/api.js">
+  <link rel="modulepreload" href="src/db/drafts.js">
+  <link rel="modulepreload" href="src/db/idb.js">
+  <link rel="modulepreload" href="src/db/repo.js">
+  <link rel="modulepreload" href="src/db/schema.js">
+  <link rel="modulepreload" href="src/engine/dates.js">
+  <link rel="modulepreload" href="src/engine/days.js">
+  <link rel="modulepreload" href="src/engine/draft.js">
+  <link rel="modulepreload" href="src/engine/entries.js">
+  <link rel="modulepreload" href="src/engine/exercise.js">
+  <link rel="modulepreload" href="src/engine/export.js">
+  <link rel="modulepreload" href="src/engine/headline.js">
+  <link rel="modulepreload" href="src/engine/index.js">
+  <link rel="modulepreload" href="src/engine/log.js">
+  <link rel="modulepreload" href="src/engine/maintenance.js">
+  <link rel="modulepreload" href="src/engine/match.js">
+  <link rel="modulepreload" href="src/engine/meals.js">
+  <link rel="modulepreload" href="src/engine/nutrition.js">
+  <link rel="modulepreload" href="src/engine/parse.js">
+  <link rel="modulepreload" href="src/engine/recipes.js">
+  <link rel="modulepreload" href="src/engine/sources.js">
+  <link rel="modulepreload" href="src/engine/summary.js">
+  <link rel="modulepreload" href="src/engine/tables.js">
+  <link rel="modulepreload" href="src/engine/targets.js">
+  <link rel="modulepreload" href="src/engine/text.js">
+  <link rel="modulepreload" href="src/engine/weight.js">
+  <link rel="modulepreload" href="src/errors.js">
+  <link rel="modulepreload" href="src/ui/check-sheet.js">
+  <link rel="modulepreload" href="src/ui/dom.js">
+  <link rel="modulepreload" href="src/ui/food-search.js">
+  <link rel="modulepreload" href="src/ui/format.js">
+  <link rel="modulepreload" href="src/ui/grams-sheet.js">
+  <link rel="modulepreload" href="src/ui/headline.js">
+  <link rel="modulepreload" href="src/ui/later.js">
+  <link rel="modulepreload" href="src/ui/log.js">
+  <link rel="modulepreload" href="src/ui/photo.js">
+  <link rel="modulepreload" href="src/ui/quick-add.js">
+  <link rel="modulepreload" href="src/ui/settings.js">
+</head>
+<body>
+  <!-- Only this scrolls; the page itself never does, so iOS can't float the tab bar off the bottom. -->
+  <div id="scroller" class="scroller">
+  <header class="top">
+    <div>
+      <h1 id="title">Log</h1>
+      <p id="synced" class="synced" hidden></p>
+    </div>
+    <button id="settings" type="button" class="icon-button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <main id="view"></main>
+  </div>
+
+  <nav class="tabs" aria-label="Screens">
+    <a href="#log" data-screen="log">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+      <span>Log</span>
+      <span class="badge" id="to-check-badge" hidden></span>
+    </a>
+    <a href="#overview" data-screen="overview">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+      <span>Overview</span>
+    </a>
+    <a href="#foods" data-screen="foods">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M8 7c0-1.5 1-2 1-3.5M12 7c0-1.5 1-2 1-3.5M16 7c0-1.5 1-2 1-3.5"/></svg>
+      <span>Foods</span>
+    </a>
+    <a href="#history" data-screen="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      <span>History</span>
+    </a>
+    <a href="#weight" data-screen="weight">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8.5 9.5a5 5 0 0 1 7 0l-2.2 2.6"/></svg>
+      <span>Weight</span>
+    </a>
+  </nav>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div role="status" aria-live="polite">
+    <button id="update" type="button" class="update" hidden>Updated, tap to reload</button>
+  </div>
+</body>
+</html>
