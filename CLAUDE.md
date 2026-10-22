@@ -1,6 +1,6 @@
 # Mateen Foodey
 
-A personal calorie, macro and exercise tracker for one person in the UK: food in grams, energy in kcal, body weight in kg or st lb. Installable web app (PWA) on GitHub Pages, with a Cloudflare Worker + D1 backend that holds all the data. `SPEC.md` is the build spec; `HANDOVER.md` is the design language and engineering approach it follows. `reference/mateen-money-CLAUDE.md` is the last project's rules, which this file is built from. The Mateen Money repo (`../Mateen Money`) may be read for patterns but never changed.
+A personal calorie, macro and exercise tracker for one person in the UK: food in grams, energy in kcal, body weight in kg or st lb. Installable web app (PWA) on GitHub Pages, with a Cloudflare Worker + D1 backend that holds all the data. `SPEC.md` is the build spec; `HANDOVER.md` is the design language and engineering approach it follows. `reference/mateen-money-CLAUDE.md` is the last project's rules, which this file is built from. The Mateen Money repo (`../Mateen Money`) may be read for patterns but never changed. Ignore `~/Downloads/CLAUDE.md`: this file is the project's rules.
 
 ## Ground rules
 
