@@ -17,8 +17,8 @@ export function backupData(state, { now }) {
 const refuse = (message) => ({ ok: false, message: `Nothing changed: ${message}` });
 const blank = (v) => v === undefined || v === null || (typeof v === 'string' && !v.trim());
 
-// Each reference a row can make: [table, field or list path, table it points to].
-const REFERENCES = [
+// Each reference a row can make: [table, ids it names, table they're in, what it is]. The Worker checks them on every write too.
+export const REFERENCES = [
   ['entries', (r) => [r.foodId], 'foods', 'an entry names a food'],
   ['entries', (r) => [r.batchId], 'batches', 'an entry names a batch'],
   ['batches', (r) => [r.recipeId], 'recipes', 'a batch names a recipe'],

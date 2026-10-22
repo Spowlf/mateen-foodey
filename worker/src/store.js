@@ -1,0 +1,116 @@
+// Reading and writing D1's synced tables. Every write goes through write(), which stamps updatedAt
+// and the next rev in the same transaction as the rows, so a sync can never skip a change.
+
+import { TABLES, SYNCED } from '../../src/engine/tables.js';
+
+const q = (name) => `"${name}"`;
+const NEXT_REV = "UPDATE meta SET value = value + 1 WHERE key = 'rev' RETURNING value";
+const CURRENT_REV = "SELECT value FROM meta WHERE key = 'rev'";
+
+function toDb(name, row, column) {
+  const v = row[column];
+  if (v === undefined) return null;
+  if (TABLES[name].json.includes(column)) return v === null ? null : JSON.stringify(v);
+  if (typeof v === 'boolean') return v ? 1 : 0;
+  return v;
+}
+
+/** A row as the API sends it: JSON columns parsed. */
+export function fromDb(name, row) {
+  if (!row) return row;
+  const out = { ...row };
+  for (const c of TABLES[name].json) out[c] = out[c] == null ? null : JSON.parse(out[c]);
+  return out;
+}
+
+export function createStore(db) {
+  const upsert = (name, row, insertOnly = false) => {
+    const cols = TABLES[name].columns.filter((c) => c !== 'rev');
+    const set = cols.filter((c) => c !== 'id').map((c) => `${q(c)} = excluded.${q(c)}`).concat('"rev" = excluded."rev"');
+    const sql = `INSERT INTO ${q(name)} (${[...cols, 'rev'].map(q).join(', ')})
+      VALUES (${cols.map(() => '?').join(', ')}, (${CURRENT_REV}))
+      ${insertOnly ? 'ON CONFLICT DO NOTHING' : `ON CONFLICT (id) DO UPDATE SET ${set.join(', ')}`}`;
+    return db.prepare(sql).bind(...cols.map((c) => toDb(name, row, c)));
+  };
+
+  return {
+    db,
+
+    async get(name, id) {
+      return fromDb(name, await db.prepare(`SELECT * FROM ${q(name)} WHERE id = ?`).bind(id).first());
+    },
+
+    async all(name, where = '1 = 1', ...params) {
+      const { results } = await db.prepare(`SELECT * FROM ${q(name)} WHERE ${where}`).bind(...params).all();
+      return results.map((r) => fromDb(name, r));
+    },
+
+    live(name) {
+      return this.all(name, 'deletedAt IS NULL');
+    },
+
+    /**
+     * Writes rows ({ table: [row] }) in one transaction under one new rev, with any extra
+     * statements in the same transaction. Tables named in insertOnly never replace an existing row
+     * (the seed). Returns { rev, changes } with the rows as written.
+     */
+    async write(changes, now, { extra = [], insertOnly = [] } = {}) {
+      const stamped = {};
+      const statements = [db.prepare(NEXT_REV)];
+      for (const [name, rows] of Object.entries(changes)) {
+        if (!rows?.length) continue;
+        stamped[name] = rows.map((r) => ({ ...r, updatedAt: now }));
+        for (const row of stamped[name]) statements.push(upsert(name, row, insertOnly.includes(name)));
+      }
+      if (statements.length === 1) {
+        if (extra.length) await db.batch(extra);
+        return { rev: null, changes: {} };
+      }
+      const [{ results: [{ value: rev }] }] = await db.batch([...statements, ...extra]);
+      for (const rows of Object.values(stamped)) for (const r of rows) r.rev = rev;
+      return { rev, changes: stamped };
+    },
+
+    /**
+     * Replaces every synced table with tables ({ name: [row] }) in one transaction under one new
+     * rev: every live row is deleted, then each given row is written as it is, deleted ones too.
+     * All of it lands or none of it does.
+     */
+    async replaceAll(tables, now) {
+      const statements = [db.prepare(NEXT_REV)];
+      for (const name of SYNCED) {
+        statements.push(db.prepare(`UPDATE ${q(name)} SET deletedAt = ?, updatedAt = ?, rev = (${CURRENT_REV}) WHERE deletedAt IS NULL`).bind(now, now));
+      }
+      let count = 0;
+      for (const name of SYNCED) {
+        for (const row of tables[name] ?? []) {
+          statements.push(upsert(name, {
+            ...TABLES[name].defaults, ...row, deletedAt: row.deletedAt ?? null, updatedAt: Number.isInteger(row.updatedAt) ? row.updatedAt : now,
+          }));
+          count++;
+        }
+      }
+      const [{ results: [{ value: rev }] }] = await db.batch(statements);
+      return { rev, count };
+    },
+
+    /** Everything changed after rev, from one consistent snapshot. */
+    async since(rev) {
+      const out = await db.batch([
+        db.prepare(CURRENT_REV),
+        ...SYNCED.map((name) => db.prepare(`SELECT * FROM ${q(name)} WHERE rev > ? ORDER BY rev, id`).bind(rev)),
+      ]);
+      const changes = {};
+      SYNCED.forEach((name, i) => { changes[name] = out[i + 1].results.map((r) => fromDb(name, r)); });
+      return { rev: out[0].results[0].value, changes };
+    },
+
+    async getMeta(key) {
+      return db.prepare('SELECT value FROM meta WHERE key = ?').bind(key).first('value');
+    },
+
+    async setMeta(key, value) {
+      await db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value').bind(key, value).run();
+    },
+  };
+}

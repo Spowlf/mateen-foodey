@@ -1,0 +1,17 @@
+# The Mateen Foodey API (Cloudflare Worker + D1).
+# Secrets, never in this file: npx wrangler secret put API_TOKEN (and ANTHROPIC_API_KEY, USDA_API_KEY).
+
+name = "mateen-foodey"
+main = "worker/src/index.js"
+compatibility_date = "2026-10-01"
+
+# D1 is in Western Europe, where the user is, and the Worker runs near the phone, which is the same
+# place. On moving abroad, add [placement] beside the database, as Mateen Money does (docs/decisions.md).
+
+[vars]
+ALLOWED_ORIGIN = "https://spowlf.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mateen-foodey"
+database_id = "paste-the-id-from-wrangler-d1-create"

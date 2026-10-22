@@ -5,6 +5,7 @@ export * from './text.js';
 export * from './nutrition.js';
 export * from './sources.js';
 export * from './parse.js';
+export * from './match.js';
 export * from './entries.js';
 export * from './meals.js';
 export * from './recipes.js';

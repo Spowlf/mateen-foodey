@@ -1,4 +1,4 @@
-// The synced tables' fields, as in worker/schema.sql (Stage 2 adds a test that they match).
+// The synced tables' fields, as in worker/schema.sql (tests/worker/schema.test.js checks they match).
 // Here, not in the Worker, because the backup check uses them on the phone too.
 // required: fields a live row must have. json: columns stored as JSON text. clientWrites: false for
 // tables only the Worker writes. Every row also has id, updatedAt, deletedAt and rev.
@@ -35,7 +35,8 @@ export const TABLES = {
   days: table(['state'], { required: ['state'] }),
   targets: table(['fromDate', 'mode', 'kcal', 'proteinG', 'carbsG', 'fatG', 'goalRateG'], { required: ['fromDate', 'mode', 'kcal'] }),
   weights: table(['date', 'grams', 'source'], { required: ['date', 'grams'], defaults: { source: 'manual' } }),
-  activity: table(['date', 'activeKcal', 'steps', 'source'], { required: ['date'] }),
+  // Only POST /health writes activity.
+  activity: table(['date', 'activeKcal', 'steps', 'source'], { required: ['date'], clientWrites: false }),
   workouts: table(['date', 'start', 'type', 'minutes', 'kcal', 'source', 'activityId'], { required: ['date', 'type', 'minutes', 'kcal', 'source'] }),
   reviews: table(['weekStart', 'completedAt'], { required: ['weekStart', 'completedAt'] }),
   settings: table(['value'], { required: ['value'], json: ['value'] }),
