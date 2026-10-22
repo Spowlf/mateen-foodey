@@ -8,12 +8,12 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 
 ## Backend (single source of truth)
 
-- Cloudflare Workers + D1. Every route except the health check requires the bearer token (a Worker secret, typed into Settings); the token is the access control. CORS additionally limits browsers to the GitHub Pages origin. The Worker validates every request body and never logs the token or food data.
+- Cloudflare Workers + D1. Every route requires the bearer token (a Worker secret, typed into Settings); the token is the access control. CORS additionally limits browsers to the GitHub Pages origin. The Worker validates every request body and never logs the token or food data.
 - Worker secrets: `API_TOKEN`, `ANTHROPIC_API_KEY`, `USDA_API_KEY`. Never in the repo.
 - Food databases and the Claude API are called by the Worker, never the phone.
 - Food sources: Open Food Facts (barcodes and branded UK foods; requests send an identifying User-Agent), CoFID (imported once into D1 by `scripts/import-cofid.js` from the government spreadsheet; the script prints what it will import and needs `--apply`), USDA FoodData Central (free API key). Looked-up foods are cached in D1 with `fetchedAt`.
-- **Idempotent saves**: every record has a client-generated id and is saved with `PUT /<table>/:id`, so retrying after an uncertain failure (network drop after Save, phone asleep mid-request) can never create a duplicate.
-- **Dates**: the phone decides the date. Entries carry the local date at logging; Shortcuts send the phone's date; summary requests send the phone's timestamp with its offset. The Worker never works out "today" for itself. Dates are `'YYYY-MM-DD'` strings, so daylight saving and travel never move an entry.
+- **Idempotent saves**: every record has a client-generated id and is saved with `PUT /<table>/:id`, so retrying after an uncertain failure (network drop after Save, phone asleep mid-request) can never create a duplicate. The Worker rejects a body whose `id` differs from the URL's.
+- **Dates**: the phone decides the date. Entries carry the local date at logging; Shortcuts send the phone's date; summary requests send the phone's timestamp with its offset. The Worker never works out "today" for itself, except for the cost guard, which is a spending cap rather than user data (see Logging). Dates are `'YYYY-MM-DD'` strings, so daylight saving and travel never move an entry.
 - **Offline**: the app shell is cached by the service worker; the last-synced data is cached in IndexedDB, and the app opens offline read-only with "Last synced [time]" while that cache survives. Saving needs a connection. Offline, the Log screen keeps one draft, labelled "Not synced", which survives refreshes, navigation and failed saves; no app logic or failed request ever discards it. Safari clearing site data is a separate case, covered by backup and restore.
 - **Backup**: JSON export, and restore from a JSON backup (all or nothing, with a confirm naming the backup's date and record count). CSV export.
 
@@ -54,14 +54,14 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
   4. **Review**: the check sheet shows each item with its match (tap to swap), grams on a number pad, kcal and macros, Remove, and what's uncertain: "~ Estimated nutrition", "~ Portion guessed", or both, with any assumptions underneath. Editing the grams makes the portion `typed`. The button reads "Log 3 Items".
   5. **Record**: entries are saved with copied nutrition, `nutritionBasis`, `portionBasis` and assumptions.
 - **Photo**: the same five steps from a photo, resized on the phone to 1,024 px on the long edge before upload. Portions from photos are always `guessed` until edited.
-- **Search**: one field; your foods first, then the sources.
+- **Search**: one field; your foods first, then the sources. The phone searches after a pause in typing, not on every keystroke, and the Worker caches recent queries as well as the foods they found, to keep requests to Open Food Facts and USDA modest.
 - **Barcode**: typed barcode numbers first, looked up on Open Food Facts. Camera scanning comes later, with a decoder file vendored into `vendor/` and served from our own origin.
 - **Quick add**: kcal, with optional macros and name.
 - **Meal slot**: defaults from the time of day (times editable in Settings) and can be changed on every entry.
 - **Food memory**: each log updates the food's usual grams.
 - **Copy**: a meal or a whole day to today.
 - **To check**: entries saved by a Shortcut or left unconfirmed. They count in today's totals as estimates ("~"), sit at the top of Log with their count on the tab, and each takes one tap to confirm or open.
-- **Cost guard**: the Worker refuses `/parse` after 100 calls in a day (estimate calls included): "Nothing changed: today's limit for sentence logging is used up. Search instead." A spending limit is also set in the Anthropic Console.
+- **Cost guard**: every model call counts: parse, estimate, and the sentence Shortcut's (`POST /log`). The Worker refuses the call after 100 in a day: "Nothing changed: today's limit for sentence logging is used up. Search instead." The day is the Worker's own UTC date, not the phone's, because this is a spending cap rather than user data. The check and the count are one atomic D1 statement, so two calls at once can't both take the last one. A spending limit is also set in the Anthropic Console.
 
 ## Recipes
 
@@ -93,7 +93,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 ## Honest gaps
 
 - Each past day is unreviewed until marked complete or incomplete. Today is never marked.
-- The weekly review lists the week's unreviewed days with "All 7 Complete" as the one-tap answer, and asks separately about any day under 60% of its target: "Was Tuesday complete?" Days can also be marked from History.
+- The weekly review lists the week's unreviewed days with "Mark N Days Complete" as the one-tap answer, and asks separately about any day under 60% of its target: "Was Tuesday complete?" Days can also be marked from History.
 - Only complete days count in the maintenance estimate and the weekly average ("Average of 6 complete days"). Unreviewed and incomplete days keep their totals in History.
 
 ## Overview
@@ -108,7 +108,7 @@ The trend weight and today's reading; a 1 Month / 3 Months / All chart (trend li
 
 - `GET /summary` (or `POST /summary` with `{ timestamp }`) returns plain text: this week's average kcal on complete days against target, the trend change, protein days, the To check count and the number of unreviewed days. A scheduled Sunday Shortcut shows it as a notification.
 - In the app, a "Weekly Review" card appears on Log from Sunday until completed:
-  1. Clear To check, and mark the week's days ("All 7 Complete", plus any flagged day).
+  1. Clear To check, and mark the week's days ("Mark N Days Complete", plus any flagged day).
   2. See the week: average against target, protein days, trend change, top foods.
   3. Adaptive: the new estimate and target, with "Use 2,050 kcal" or "Keep 2,100 kcal". Fixed: the trend change against the goal rate ("Your trend fell 0.1 kg against a goal of 0.5 kg.") with one suggested target.
   Then "Done"; the toast says how many weeks in a row.
@@ -155,6 +155,7 @@ The trend weight and today's reading; a 1 Month / 3 Months / All chart (trend li
 - Headline: left and over, To check counted as estimates, exercise added back in fixed mode only.
 - Meal slot from the time.
 - Weekly summary figures: Monday to Sunday, the complete-day average, protein days, unreviewed count.
-- Cost guard: the 101st parse or estimate call in a day is refused.
+- Cost guard: the 101st model call in a UTC day (parse, estimate or `POST /log`) is refused, whatever date the phone sends.
+- `PUT` with a body whose `id` differs from the URL's is rejected, and nothing changes.
 - The offline draft survives a refresh and a failed save, and is never discarded by app logic.
 - Restore replaces everything or nothing.

@@ -9,9 +9,10 @@ A personal calorie, macro and exercise tracker for one person in the UK: food in
 - Three layers, one direction: `ui → db → engine`. `src/engine/` is pure (no DOM, no storage, `today`/`now` passed in) and is shared by the front end, the Worker and the scripts.
 - Quantities are integers everywhere: food in grams, energy in tenths of a kcal and nutrients in milligrams per 100 g, body weight in grams. Convert from source data once, when it's cached; convert from typed text once, on save. Scale with integer maths and round once, for display.
 - Unknown is not zero: a nutrient a source doesn't give is `null` through scaling, totals, recipes and display.
-- Dates are `'YYYY-MM-DD'` strings; date maths in UTC; "today" from local getters on the phone. The phone decides every date: entries carry the local date at logging, Shortcuts send the phone's date or timestamp. The Worker never works out "today" itself. Instants are ms timestamps.
+- Dates are `'YYYY-MM-DD'` strings; date maths in UTC; "today" from local getters on the phone. The phone decides every date: entries carry the local date at logging, Shortcuts send the phone's date or timestamp. The Worker never works out "today" itself, except for the cost guard's UTC day. Instants are ms timestamps.
 - Food databases (Open Food Facts, CoFID, USDA) and the Claude API are called by the Worker, never the phone.
-- Every record has a client-generated id and is saved with `PUT /<table>/:id`, so a retry never makes a duplicate.
+- Every record has a client-generated id and is saved with `PUT /<table>/:id`, so a retry never makes a duplicate. A body whose `id` differs from the URL's is rejected.
+- Every route needs the bearer token. There is no unauthenticated route.
 - Never commit the API token, the Anthropic or USDA keys, backups or `.dev.vars`. They are Worker secrets; the token is also typed into Settings on the phone. The Worker never logs the token or food data.
 - Build in stages. Tests for the maths before any interface. Check in with the user after each stage. **Commit and push automatically.**
 - Push straight to `main`, never to a feature branch (even one a session is set up with).

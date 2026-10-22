@@ -54,32 +54,32 @@ Every synced row also has `id` (client UUID unless stated), `updatedAt`, `delete
 |---|---|---|
 | `meta` | key, value | rev, seeded |
 | `sourceFoods` **(new)** | id `<source>:<sourceId>`, source, sourceId, name, nameNorm, brand, barcode, state, per100g *json*, carbsIncludeFibre, servings *json*, fetchedAt | The cache: CoFID's import, plus every Open Food Facts and USDA food looked up. Search uses `nameNorm`. |
-| `parseCalls` **(new)** | date, calls | The cost guard. id = the phone's date. |
+| `parseCalls` **(new)** | calls | The cost guard. id = the Worker's own UTC date. Checked and incremented in one statement before each model call: `INSERT INTO parseCalls (id, calls) VALUES (?, 1) ON CONFLICT (id) DO UPDATE SET calls = calls + 1 WHERE calls < 100 RETURNING calls`. No row back means the cap is reached. |
+| `searchCache` **(new)** | source, queryNorm, sourceFoodIds *json*, fetchedAt | id `<source>:<queryNorm>`. A query asked again within 7 days is answered from here and `sourceFoods`, without asking Open Food Facts or USDA. |
 
 ### Settings rows
 
-`goalRateG` (−750, −500, −250, 0, 250 g a week), `floorKcal` (1500), `exerciseAddBackPct` (50), `mealTimes` (`{ lunch: '11:00', dinner: '17:00', snacks: '21:00' }`; breakfast from 04:00), `weightUnit` (`kg`), `sources` (`{ off, cofid, usda }`, each on). The mode and the targets themselves are in `targets`. The token and the last-synced time stay on the phone (`meta` in IndexedDB), as in Mateen Money.
+`floorKcal` (1500), `exerciseAddBackPct` (50), `mealTimes` (`{ lunch: '11:00', dinner: '17:00', snacks: '21:00' }`; breakfast from 04:00), `weightUnit` (`kg`), `sources` (`{ off, cofid, usda }`, each on). The mode, the goal rate (`goalRateG`: −750, −500, −250, 0 or 250 g a week) and the targets themselves are only in `targets`. The token and the last-synced time stay on the phone (`meta` in IndexedDB), as in Mateen Money.
 
 ## 3. Routes
 
-Every route needs `Authorization: Bearer <API_TOKEN>` except `GET /ping`. JSON writes reply `{ rev, changes }`. Shortcut routes reply with one line of text for a notification. Errors start "Nothing changed:".
+Every route needs `Authorization: Bearer <API_TOKEN>`; there is no unauthenticated route. JSON writes reply `{ rev, changes }`. Shortcut routes reply with one line of text for a notification. Errors start "Nothing changed:".
 
 | Route | Request | Reply |
 |---|---|---|
-| `GET /ping` | | `{ ok: true }` (no token: the health check, named so it isn't confused with `/health`) |
 | `GET /sync?since=rev` | | `{ rev, changes: { table: [row] } }` |
-| `PUT /:table/:id` | the row's fields | `{ rev, changes }`. Saving an entry also updates its food's usualGrams, useCount and lastUsedAt in the same write. |
+| `PUT /:table/:id` | the row's fields | `{ rev, changes }`. A body whose `id` differs from the URL's is refused with 400 and nothing changes. Saving an entry also updates its food's usualGrams, useCount and lastUsedAt in the same write. |
 | `DELETE /:table/:id` | | `{ rev, changes }` (soft delete; Undo is a PUT with `deletedAt: null`) |
-| `POST /batch` | `{ foods?, entries?, batches?, days?, ... }` with ids | `{ rev, changes }`, all or nothing. Used for "Log 3 Items" (new foods and their entries together), Copy to Today and "All 7 Complete". |
-| `GET /search?q=` | | `{ results: [Food] }` from the cache, then Open Food Facts and USDA (fetched results are cached). Your own foods are searched on the phone, so they come first and work offline. |
+| `POST /batch` | `{ foods?, entries?, batches?, days?, ... }` with ids | `{ rev, changes }`, all or nothing. Used for "Log 3 Items" (new foods and their entries together), Copy to Today and "Mark N Days Complete". |
+| `GET /search?q=` | | `{ results: [Food] }` from the cache, then Open Food Facts and USDA. The phone sends it after a pause in typing (about 400 ms), not on every keystroke. Recent queries are cached (`searchCache`) as well as the foods found, so a repeat asks neither source. Your own foods are searched on the phone, so they come first and work offline. |
 | `GET /barcode/:code` | | `{ food: Food \| null }` from the cache, else Open Food Facts |
-| `POST /parse` | `{ date, text }` or `{ date, image: { mediaType, data } }` (base64 JPEG, ≤ 1,024 px) | `{ items: [{ name, quantity, unit, grams, gramsAssumed, state, food, matchedFrom, alternatives }], callsLeft }`. Steps 1 to 3 run on the Worker in one request. `food` is a matched or estimated food without an id; the phone gives it one when you log. Refused after 100 calls on `date`. |
-| `POST /log` | `{ text, timestamp }` (the sentence Shortcut) | Text: "3 items to check: eggs, toast, flat white." Entries are saved as `toCheck`, origin `shortcut`, with ids from the timestamp, so a retry adds nothing. |
+| `POST /parse` | `{ text }` or `{ image: { mediaType, data } }` (base64 JPEG, ≤ 1,024 px) | `{ items: [{ name, quantity, unit, grams, gramsAssumed, state, food, matchedFrom, alternatives }], callsLeft }`. Steps 1 to 3 run on the Worker in one request. `food` is a matched or estimated food without an id; the phone gives it one when you log. The parse call and the estimate call each count against the cost guard. |
+| `POST /log` | `{ text, timestamp }` (the sentence Shortcut) | Text: "3 items to check: eggs, toast, flat white." Entries are saved as `toCheck`, origin `shortcut`, with ids from the timestamp, so a retry adds nothing. Its model calls count against the cost guard too. |
 | `POST /health` | `{ date, activeKcal, steps, weightKg, workouts: [{ start, type, minutes, kcal }] }` | Text: "Synced 12 Oct: 480 active kcal, 9,120 steps, 72.4 kg." |
 | `GET /summary?date=` / `POST /summary` | `{ timestamp }` | Text: the weekly summary |
 | `POST /restore` | a backup file | `{ rev, count }`, all or nothing |
 
-The Claude call (Stage 2) asks for JSON through `output_config.format` (a JSON schema), at low effort, with your 30 most-logged foods in the prompt. The Worker validates what comes back: grams over 0 and at most 5,000 (otherwise grams are left blank for you to enter), unknown fields dropped, and no nutrition accepted from the parse step. A `refusal` stop reason gets "Nothing changed: …", and Haiku has no fallback model.
+The Claude call (Stage 2) asks for JSON through `output_config.format` (a JSON schema), at low effort, with your 30 most-logged foods in the prompt. The Worker validates what comes back: grams over 0 and at most 5,000 (otherwise grams are left blank for you to enter), unknown fields dropped, and no nutrition accepted from the parse step. A `refusal` stop reason gets "Nothing changed: …", and Haiku has no fallback model. Before every model call, the Worker takes one of the day's 100 with the `parseCalls` statement above; if none is left, it makes no call.
 
 ## 4. Engine modules (`src/engine/`)
 
