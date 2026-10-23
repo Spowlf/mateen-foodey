@@ -23,7 +23,7 @@ Right after eating, phone in one hand. A regular food or meal takes two taps; an
 - **Unknown is not zero**: a missing nutrient is `null` everywhere, and totals say so ("Fibre unknown for 2 foods.").
 - **Energy**: the source's own kcal, never recalculated from macros. kJ only: kcal = kJ ÷ 4.184. USDA: 208, then Atwater Specific (958), then Atwater General (957), then kJ.
 - **Carbs** follow UK / EU labels, fibre excluded. USDA carbs become carbs − fibre when fibre is known; otherwise kept, fibre `null`, marked `carbsIncludeFibre` ("Carbs may include fibre.").
-- **CoFID**: "Tr" is 0; "N" and blanks are unknown. Fibre is AOAC (unknown when only NSP is given).
+- **CoFID**: "Tr" is 0; "N" and blanks are unknown. Fibre is AOAC (unknown when only NSP is given). Carbs kept as given (monosaccharide equivalents, a few percent above labels for starchy foods).
 - **Open Food Facts**: as-sold (`_100g`) values only; prepared values are never mixed in.
 - **Salt** from sodium only: sodium × 2.5.
 - Body weight in integer grams.
