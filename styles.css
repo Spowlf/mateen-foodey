@@ -356,6 +356,23 @@ main {
 /* A link that acts like a text button (Sync Health opens Shortcuts). */
 a.text-button { display: inline-flex; align-items: center; text-decoration: none; }
 
+/* History: each day's head (its state as a tag, its total), then its meals, each a list under a small heading. */
+
+.day { gap: var(--s3); }
+.day-head { display: grid; gap: var(--s1); }
+.meal-block { display: grid; gap: var(--s2); }
+.meal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 40px; }
+.meal-head h3 { font-size: var(--t-s); font-weight: 600; color: var(--ink-2); }
+.meal-head .text-button { margin: 0 calc(-1 * var(--s3)) 0 0; }
+
+/* Settings: a toggle is a whole row you can tap, the switch at its end. */
+.toggles { display: grid; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 60px; padding: var(--s3) var(--s4); cursor: pointer; }
+.toggles > .toggle-row + .toggle-row { border-top: 1px solid var(--line); }
+.toggle-row input { flex: none; width: 24px; height: 24px; accent-color: var(--accent); }
+@media (hover: hover) { .toggle-row:hover { background: color-mix(in srgb, var(--surface) 90%, var(--accent-soft)); } }
+.toggle-row:active { background: var(--accent-soft); }
+
 /* Fields */
 
 .field { display: grid; gap: var(--s1); }

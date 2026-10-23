@@ -6,7 +6,7 @@
 import { SYNCED } from './schema.js';
 import { createApi } from './api.js';
 import { createDraftStore } from './drafts.js';
-import { today, logLines, adoptFoods } from '../engine/index.js';
+import { today, logLines, adoptFoods, copyEntries } from '../engine/index.js';
 
 const PARSE_TIMEOUT_MS = 60_000;
 
@@ -155,6 +155,23 @@ export function createRepo({ db, fetch, now = () => Date.now(), newId = () => cr
     /** Deletes several entries in one write (Undo after logging). */
     async deleteEntries(ids) {
       return repo.saveBatch({ entries: ids.map((id) => ({ id, deletedAt: now() })) });
+    },
+
+    /** Copies entries to date (Copy to Today) in one write. Returns the copies saved. */
+    async copyEntries(list, date) {
+      const copies = copyEntries(list, { date, newId, now: now() });
+      const result = await repo.saveBatch({ entries: copies });
+      return result.changes.entries ?? [];
+    },
+
+    /**
+     * Replaces everything on the backend with a backup (checked there before anything is written),
+     * then pulls the result: rows the backup doesn't have arrive deleted.
+     */
+    async restoreBackup(data) {
+      const result = await api.post('/restore', data, { timeout: PARSE_TIMEOUT_MS });
+      await repo.sync();
+      return result;
     },
 
     /** A synced setting's value, or fallback when it isn't set. */

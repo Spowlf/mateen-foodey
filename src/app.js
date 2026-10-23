@@ -7,7 +7,7 @@ import { renderSettings } from './ui/settings.js';
 import { renderFoods } from './ui/foods.js';
 import { renderOverview } from './ui/overview.js';
 import { renderWeight } from './ui/weight.js';
-import { renderLater } from './ui/later.js';
+import { renderHistory } from './ui/history.js';
 import { toast } from './ui/dom.js';
 import { toCheckEntries, syncedPhrase } from './engine/index.js';
 import { OfflineError, ApiError } from './errors.js';
@@ -30,7 +30,7 @@ const SCREENS = {
   log: { title: 'Log', render: renderLog },
   overview: { title: 'Overview', render: renderOverview },
   foods: { title: 'Foods', render: renderFoods },
-  history: { title: 'History', render: renderLater('history') },
+  history: { title: 'History', render: renderHistory },
   weight: { title: 'Weight', render: renderWeight },
   settings: { title: 'Settings', render: renderSettings },
 };

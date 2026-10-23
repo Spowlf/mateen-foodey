@@ -3,8 +3,7 @@
 // retry after an uncertain failure writes the same row again and never adds a second one.
 
 import {
-  TABLES, SYNCED, REFERENCES, validDate, MEALS, DEFAULT_MEAL_TIMES, GOAL_RATES_G, DEFAULT_FLOOR_KCAL, DEFAULT_ADD_BACK_PCT,
-  MAX_GRAMS, NUTRIENTS, AMOUNT_FIELDS, foodMemory,
+  TABLES, SYNCED, REFERENCES, validDate, MEALS, GOAL_RATES_G, MAX_GRAMS, NUTRIENTS, AMOUNT_FIELDS, foodMemory, DEFAULT_SETTINGS, settingProblem,
 } from '../../src/engine/index.js';
 import { refuse } from './http.js';
 
@@ -24,29 +23,7 @@ const validAmounts = (a) => a && typeof a === 'object' && AMOUNT_FIELDS.every((f
 /** Lines naming a food and its grams: recipe ingredients, saved meal items, batch ingredients. */
 const validLines = (lines) => Array.isArray(lines) && lines.every((l) => l && typeof l.foodId === 'string' && int(l.grams, 1, MAX_GRAMS));
 
-const validTime = (t) => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
-
-// Settings the app writes, and what each may hold.
-const SETTING_CHECKS = {
-  floorKcal: (v) => (int(v, 800, 4000) ? null : 'enter a floor from 800 to 4,000 kcal.'),
-  exerciseAddBackPct: (v) => (int(v, 0, 100) ? null : 'enter a share from 0 to 100%.'),
-  mealTimes: (v) => {
-    const times = MEALS.map((m) => v?.[m]);
-    if (!times.every(validTime)) return 'enter each meal time as hours and minutes.';
-    return times.every((t, i) => i === 0 || t > times[i - 1]) ? null : 'put the meal times in order through the day.';
-  },
-  weightUnit: (v) => (v === 'kg' || v === 'stlb' ? null : 'pick kg or st lb.'),
-  sources: (v) => (v && ['off', 'cofid', 'usda'].every((s) => typeof v[s] === 'boolean') ? null : 'turn each food source on or off.'),
-};
-
-/** The defaults written once, on the first request. */
-export const DEFAULT_SETTINGS = {
-  floorKcal: DEFAULT_FLOOR_KCAL,
-  exerciseAddBackPct: DEFAULT_ADD_BACK_PCT,
-  mealTimes: { ...DEFAULT_MEAL_TIMES },
-  weightUnit: 'kg',
-  sources: { off: true, cofid: true, usda: true },
-};
+export { DEFAULT_SETTINGS };
 
 /** What's wrong with a live row, as the end of "Nothing changed: …", or null. */
 function check(name, row) {
@@ -105,7 +82,7 @@ function check(name, row) {
       if (!validDate(row.weekStart) || row.id !== row.weekStart) return 'pick the week.';
       return Number.isInteger(row.completedAt) ? null : 'finish the review again.';
     case 'settings':
-      return SETTING_CHECKS[row.id] ? SETTING_CHECKS[row.id](row.value) : 'that setting doesn’t exist.';
+      return settingProblem(row.id, row.value);
     default:
       return null;
   }
