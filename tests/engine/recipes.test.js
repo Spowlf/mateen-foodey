@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { batchLine, batchTotals, finishedGrams, servedAmounts, portion, gramsLeft, hasLeft, batchEntry, makeAgain } from '../../src/engine/recipes.js';
+import { batchLine, batchTotals, finishedGrams, servedAmounts, portion, gramsLeft, hasLeft, batchEntry, makeAgain, servingSplits } from '../../src/engine/recipes.js';
 import { AMOUNT_FIELDS } from '../../src/engine/nutrition.js';
 import { OATS, MILK, HONEY } from './fixtures.js';
 
@@ -114,4 +114,14 @@ test('recipes: making a batch sums or weighs the dish, subtracts the pot only wh
   assert.deepEqual(batchesOf([older, newer, { ...newer, id: 'gone', deletedAt: 1 }], 'r1').map((b) => b.id), ['new', 'old']);
   assert.deepEqual(nextIngredients(recipe, [older, newer]), [{ foodId: 'f-oats', grams: 80 }, { foodId: 'f-milk', grams: 400 }, { foodId: 'f-honey', grams: 21 }]);
   assert.equal(leftText({ ...newer, finishedGrams: 1500 }, [{ id: 'e', batchId: 'new', grams: 450, deletedAt: null }]), '~1,050 g left');
+});
+
+test('recipes: servings split the weight and totals equally, unknowns kept', () => {
+  const b = makeBatch();
+  const [three, four, five] = servingSplits(b.totals, b.finishedGrams);
+  assert.deepEqual([three.count, three.grams, four.grams, five.grams], [3, 167, 125, 100]);
+  assert.equal(three.nutrition.kcalMilli, Math.round(b.totals.kcalMilli / 3));
+  assert.equal(five.nutrition.proteinUg, Math.round(b.totals.proteinUg / 5));
+  assert.deepEqual(three.nutrition.partial, ['fibreUg', 'saltUg']);
+  assert.equal(servingSplits({ ...b.totals, fatUg: null }, 501, [2])[0].nutrition.fatUg, null);
 });

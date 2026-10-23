@@ -43,6 +43,13 @@ function scale(totals, part, whole) {
   return out;
 }
 
+/**
+ * The dish split into equal servings, for each count: grams and nutrition of one serving
+ * (weight and totals ÷ count, each rounded once).
+ */
+export const servingSplits = (totals, grams, counts = [3, 4, 5]) =>
+  counts.map((count) => ({ count, grams: roundDiv(grams, count), nutrition: scale(totals, 1, count) }));
+
 /** The nutrition of grams served: totals ÷ finished weight × grams. */
 export const servedAmounts = (batch, grams) => scale(batch.totals, grams, batch.finishedGrams);
 

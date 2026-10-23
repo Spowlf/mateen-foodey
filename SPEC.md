@@ -46,8 +46,8 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 
 ## Logging
 
-- **Headline** at the top of Log: "~1,240 kcal left today." or "180 kcal over today." in plain ink, never red. Under it: "92 g protein to go." or "Protein target reached." The headline, protein, quick log and the add field come before anything else on the screen.
-- **Quick log**: chips for recent foods and saved meals, ordered by how often each is logged in the current meal slot. A tap logs at the usual portion, with Undo.
+- **Headline** at the top of Log: "~1,240 kcal left today." or "180 kcal over today." in plain ink, never red. Under it: "92 g protein to go." or "Protein target reached." The headline, protein, Log a Saved Meal and the add field come before anything else on the screen.
+- **Saved meals**: "Log a Saved Meal" opens the list of saved meals; a tap logs one to the chosen meal slot, with Undo. A saved meal's foods can be chosen from My Foods as well as searched or typed.
 - **Sentence logging** ("two eggs, toast with butter, flat white") runs in five steps:
   1. **Parse**: `POST /parse` sends the text to Claude Haiku 5.5 (`claude-haiku-5-5`) with the 30 most-logged foods, so "my usual porridge" resolves. A JSON schema returns `[{ name, quantity, unit, grams, gramsAssumed, state, searchTerm }]`; `gramsAssumed` is true when the sentence gave no amount. No nutrition comes from this step.
   2. **Match**: each item against the user's foods, then the cache, then Open Food Facts, CoFID and USDA.
@@ -71,7 +71,8 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 - The finished weight defaults to the sum of the ingredients. "Weigh the Finished Dish" replaces it, weighed without the pot (zero the scales with it on).
 - Logging from a batch asks for grams served (nutrition per gram = totals ÷ finished weight) or, when portions are set, a number of portions (totals ÷ portions, any rounding remainder in the last portion).
 - A batch's totals carry its ingredients' unknowns and estimates: an estimated ingredient makes the batch "~".
-- "~1,050 g left" is the finished weight less what's been logged, never below zero. A batch with nothing left drops off the quick-log chips.
+- "~1,050 g left" is the finished weight less what's been logged, never below zero.
+- The recipe shows its total kcal and macros, and one serving of 3, 4 or 5: grams each, kcal and macros. From the last batch's finished weight, or before it's made, the ingredients' sum.
 
 ## Exercise and Health
 
@@ -118,7 +119,7 @@ The review happens on Monday morning and covers the previous Monday to Sunday.
 
 ## Screens
 
-1. **Log**: headline, weekly review card (when due), To check, quick log, sentence and photo logging, search, barcode, quick add.
+1. **Log**: headline, weekly review card (when due), To check, Log a Saved Meal, sentence and photo logging, search, barcode, quick add.
 2. **Overview**: Today / Week / Month, when Health last synced.
 3. **Foods**: My Foods / Saved Meals / Recipes.
 4. **History**: grouped by day, with each day's state; search; edit and delete with Undo; Copy to Today; Mark Complete / Mark Incomplete.

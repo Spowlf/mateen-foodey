@@ -72,5 +72,5 @@ Applies to every string the user sees, including notification text from the Work
 - One look per meaning: segmented controls for switching views, pill chips for picking values, one primary and one secondary button style.
 - No generic dashboard patterns: no coloured icon tiles on stat cards, no icon-plus-text grids, no emoji, no stock illustration.
 - Secondary text meets 4.5:1 contrast in light and dark mode.
-- Each screen shows its most useful information first, with no decorative space above it. On Log that's the headline, protein, quick log and the add field.
+- Each screen shows its most useful information first, with no decorative space above it. On Log that's the headline, protein, Log a Saved Meal and the add field.
 - Every decorative detail must have a stated reason. If it has none, remove it.

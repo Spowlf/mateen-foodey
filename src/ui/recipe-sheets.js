@@ -9,7 +9,7 @@ import { openGramsSheet } from './grams-sheet.js';
 import {
   linesWithFoods, linesTotal, storedLines, figuresText, unknownLines, today, formatDay, formatGrams, formatKcal, kcalOf, titleCase,
   batchesOf, nextIngredients, makeBatch, leftText, servedAmounts, portions, portionsLogged, portionsLeft, batchEntry,
-  sumGrams,
+  sumGrams, servingSplits, gramsOf,
 } from '../engine/index.js';
 
 const MAX_CHOICES = 4;
@@ -161,7 +161,7 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
     busy = false;
     if (!result) return render();
     s.close();
-    toast(keepUnits(`Saved ${recipe.name}: ${formatGrams(made.finishedGrams)}, ready on Log’s quick log.`));
+    toast(keepUnits(`Saved ${recipe.name}: ${formatGrams(made.finishedGrams)}, ready to log from Recipes.`));
   }
 
   const s = openSheet({ title: isNew ? `Make ${recipe.name}` : recipe.name },
@@ -246,7 +246,33 @@ export function openRecipeEditor({ repo, recipe = null }) {
   return s;
 }
 
-/** A recipe: its batches (tap one to log from it), then Make It / Make Again. */
+/**
+ * The dish's total, then one serving of 3, 4 or 5: from the last batch's finished weight, or before
+ * it's made, the ingredients as they go in.
+ */
+function servingsSection({ totals, grams, estimated, made }) {
+  const t = estimated ? '~' : '';
+  const g = (ug) => (ug == null ? '–' : formatGrams(gramsOf(ug)));
+  const kcal = (a) => { const k = kcalOf(a.kcalMilli); return k == null ? '–' : `${t}${k.toLocaleString('en-GB')}`; };
+  return h('section', { class: 'section', 'aria-label': 'Servings' },
+    h('h3', { class: 'subhead' }, 'Servings'),
+    h('p', { class: 'headline-protein' }, keepUnits(`Total: ${figuresText(totals, { estimated })}`)),
+    h('p', { class: 'reason' }, keepUnits(made
+      ? `${formatGrams(grams)} finished, from the batch made ${madeOn(made)}.`
+      : `${formatGrams(grams)} of ingredients. Make it and weigh the finished dish for exact servings.`)),
+    h('table', { class: 'data-table' },
+      h('thead', {}, h('tr', {}, ['Servings', 'Each', 'Kcal', 'Protein', 'Carbs', 'Fat'].map((c) => h('th', { scope: 'col' }, c)))),
+      h('tbody', {}, servingSplits(totals, grams).map(({ count, grams: each, nutrition: a }) => h('tr', {},
+        h('th', { scope: 'row' }, String(count)),
+        h('td', { class: 'num' }, formatGrams(each)),
+        h('td', { class: 'num' }, kcal(a)),
+        h('td', { class: 'num' }, g(a.proteinUg)),
+        h('td', { class: 'num' }, g(a.carbsUg)),
+        h('td', { class: 'num' }, g(a.fatUg)))))),
+    unknownLines(totals).map((l) => h('p', { class: 'reason' }, l)));
+}
+
+/** A recipe: its total and servings, its batches (tap one to log from it), then Make It / Make Again. */
 export function openRecipeSheet({ repo, recipe }) {
   const S = repo.state;
   const batches = batchesOf(S.batches, recipe.id);
@@ -254,9 +280,14 @@ export function openRecipeSheet({ repo, recipe }) {
   const total = linesTotal(lines);
   const blocked = offlineLabel(repo);
   const n = lines.length;
+  const last = batches[0];
+  const base = last
+    ? { totals: last.totals, grams: last.finishedGrams, estimated: !!last.totals.estimated, made: last.date }
+    : total && { totals: total.amounts, grams: sumGrams(lines), estimated: total.estimated, made: null };
   const s = openSheet({ title: recipe.name },
     h('div', { class: 'sheet-form' },
-      h('p', { class: 'reason' }, keepUnits(`${n} ${n === 1 ? 'ingredient' : 'ingredients'}${total ? `, ${figuresText(total.amounts, total).split(', ')[0]} together` : ''}.`)),
+      h('p', { class: 'reason' }, `${n} ${n === 1 ? 'ingredient' : 'ingredients'}.`),
+      base && servingsSection(base),
       h('section', { class: 'section', 'aria-label': 'Batches' },
         h('h3', { class: 'subhead' }, 'Batches'),
         batches.length

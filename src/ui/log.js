@@ -1,13 +1,12 @@
-// Log: the headline and protein, To check, quick log, then one box for what you ate. A sentence goes
+// Log: the headline and protein, To check, Log a Saved Meal, then one box for what you ate. A sentence goes
 // to the check sheet; a food's name searches your foods and the sources; a barcode's digits look it
 // up; the camera reads a photo. Quick Add takes typed kcal.
 // What's typed and the check sheet's items are the one offline draft ("Not synced"): kept on every
 // edit, cleared only once the backend has the entries.
 
-import { h, fill, chips, toast, icon } from './dom.js';
+import { h, fill, chips, toast, icon, openSheet } from './dom.js';
 import { runAction, keepUnits, mealNow as slotNow, loggedToast } from './format.js';
-import { logSavedMeal } from './saved-meal-sheet.js';
-import { openBatchLog } from './recipe-sheets.js';
+import { logSavedMeal, savedMealSub } from './saved-meal-sheet.js';
 import { renderHeadline } from './headline.js';
 import { renderReviewCard } from './review.js';
 import { createFoodSearch } from './food-search.js';
@@ -18,7 +17,7 @@ import { photoForParse } from './photo.js';
 import { submitDraft } from '../db/drafts.js';
 import { OfflineError } from '../errors.js';
 import {
-  today, MEALS, mealName, emptyLogForm, isBlank, quickLogItems, toCheckEntries, leftText, amountsFor,
+  today, MEALS, mealName, emptyLogForm, isBlank, toCheckEntries, amountsFor, isLive,
   formatGrams, formatDayShort, titleCase, kcalOf, formatKcal,
 } from '../engine/index.js';
 
@@ -33,7 +32,7 @@ export function renderLog(root, { repo }) {
     headline: h('section', { 'aria-live': 'polite', 'aria-label': 'Today' }),
     review: h('section', { 'aria-label': 'Weekly Review' }),
     toCheck: h('section', { class: 'section', 'aria-label': 'To Check' }),
-    quick: h('section', { class: 'section', 'aria-label': 'Quick Log' }),
+    quick: h('section', { 'aria-label': 'Saved Meals' }),
     add: h('section', { class: 'add', 'aria-label': 'Log Food' }),
   };
   fill(root, h('div', { class: 'screen' }, el.headline, el.review, el.toCheck, el.quick, el.add));
@@ -107,37 +106,30 @@ export function renderLog(root, { repo }) {
     return true;
   }
 
-  // Quick log
+  // Saved meals: one button, then the list to pick from
+
+  function openSavedMeals() {
+    const to = meal();
+    const meals = S.savedMeals.filter(isLive).sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+    const sheet = openSheet({ title: 'Log a Saved Meal' },
+      h('div', { class: 'sheet-form' },
+        h('p', { class: 'reason' }, `Logs to ${mealName(to).toLowerCase()}.`),
+        h('ul', { class: 'list', 'aria-label': 'Saved meals' }, meals.map((m) => h('li', {},
+          h('button', {
+            type: 'button', class: 'list-row',
+            onclick: async (e) => {
+              e.currentTarget.disabled = true;
+              if (await logSavedMeal(repo, m, to)) sheet.close();
+              else e.currentTarget.disabled = false;
+            },
+          },
+          h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, m.name), h('span', { class: 'list-sub' }, savedMealSub(m, S.foods)))))))));
+  }
 
   function renderQuick() {
-    const items = repo.connected() ? quickLogItems({
-      entries: S.entries, foods: S.foods, savedMeals: S.savedMeals, batches: S.batches, recipes: S.recipes, meal: meal(), today: today(),
-    }) : [];
-    el.quick.hidden = !items.length;
-    if (!items.length) return fill(el.quick);
-    const chip = (item) => {
-      if (item.kind === 'batch') {
-        // Serving from a batch asks for grams or portions.
-        const left = leftText(item.batch, S.entries);
-        return h('button', {
-          type: 'button', class: 'chip', 'aria-label': `Log ${item.recipe.name}, ${left}`,
-          onclick: () => openBatchLog({ repo, batch: item.batch, recipe: item.recipe }),
-        }, item.recipe.name, h('span', { class: 'chip-sub' }, keepUnits(left)));
-      }
-      if (item.kind === 'meal') {
-        const n = item.savedMeal.items.length;
-        return h('button', {
-          type: 'button', class: 'chip', 'aria-label': `Log ${item.savedMeal.name}, ${n} ${n === 1 ? 'food' : 'foods'}`,
-          onclick: (e) => { e.currentTarget.disabled = true; logSavedMeal(repo, item.savedMeal, meal()).finally(() => renderQuick()); },
-        }, item.savedMeal.name, h('span', { class: 'chip-sub' }, `${n} ${n === 1 ? 'food' : 'foods'}`));
-      }
-      const { food, grams } = item;
-      return h('button', {
-        type: 'button', class: 'chip', 'aria-label': `Log ${formatGrams(grams)} ${food.name}`,
-        onclick: (e) => { e.currentTarget.disabled = true; logOne(food, grams, 'typed').finally(() => renderQuick()); },
-      }, food.name, h('span', { class: 'chip-sub' }, formatGrams(grams)));
-    };
-    fill(el.quick, h('div', { class: 'chips', role: 'group', 'aria-label': `Quick log to ${mealName(meal()).toLowerCase()}` }, items.map(chip)));
+    const show = repo.connected() && S.savedMeals.some(isLive);
+    el.quick.hidden = !show;
+    fill(el.quick, show && h('div', {}, h('button', { type: 'button', class: 'text-button', onclick: () => openSavedMeals() }, 'Log a Saved Meal')));
   }
 
   // The add box

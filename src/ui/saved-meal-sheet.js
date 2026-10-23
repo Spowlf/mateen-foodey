@@ -1,4 +1,4 @@
-// A saved meal: a name and its foods, each at its grams. One tap on Log's quick-log chip logs them all.
+// A saved meal: a name and its foods, each at its grams. Log a Saved Meal on Log logs them all.
 
 import { h, fill, field, openSheet, toast } from './dom.js';
 import { runAction, mealNow, loggedToast, deleteWithUndo, offlineLabel, keepUnits } from './format.js';
@@ -36,7 +36,7 @@ export function openSavedMealSheet({ repo, savedMeal = null }) {
     value: savedMeal?.name ?? '', placeholder: 'Usual breakfast', oninput: () => { dirty = true; render(); },
   });
   const editor = createLinesEditor({
-    repo, lines: start, what: 'food', placeholder: 'Porridge oats, or 40 g oats with 200 ml milk',
+    repo, lines: start, what: 'food', placeholder: 'Porridge oats, or 40 g oats with 200 ml milk', fromMine: true,
     onChange: () => { dirty = true; render(); },
   });
   const together = h('div', { class: 'section', 'aria-live': 'polite' });
@@ -80,7 +80,7 @@ export function openSavedMealSheet({ repo, savedMeal = null }) {
     busy = false;
     if (!row) return render();
     s.close();
-    toast(isNew ? `Added ${row.name}. It’s on Log’s quick log.` : `Saved ${row.name}.`);
+    toast(`${isNew ? 'Added' : 'Saved'} ${row.name}.`);
   }
 
   async function logNow() {
