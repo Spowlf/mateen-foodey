@@ -27,7 +27,7 @@ A personal calorie, macro and exercise tracker for one person in the UK: food in
 5. Overview and Weight.
 6. History and Settings.
 7. Weekly review.
-8. Shortcuts: Health sync, sentence logging, the weight history import script, and `docs/shortcuts.md`.
+8. Shortcuts and exercise: Health sync, sentence logging, the weight history import script, `docs/shortcuts.md`, and manual exercise (`data/activities.json` with MET values and sources).
 9. PWA and deployment.
 
 ## Commands
