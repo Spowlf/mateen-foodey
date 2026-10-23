@@ -4,6 +4,9 @@
 name = "mateen-foodey"
 main = "worker/src/index.js"
 compatibility_date = "2026-10-01"
+# The workers.dev address is the backend; no preview copies of each version.
+workers_dev = true
+preview_urls = false
 
 # D1 is in Western Europe, where the user is, and the Worker runs near the phone, which is the same
 # place. On moving abroad, add [placement] beside the database, as Mateen Money does (docs/decisions.md).
@@ -14,4 +17,4 @@ ALLOWED_ORIGIN = "https://spowlf.github.io"
 [[d1_databases]]
 binding = "DB"
 database_name = "mateen-foodey"
-database_id = "paste-the-id-from-wrangler-d1-create"
+database_id = "05fb3a08-bf0b-4b81-a55a-60767b3cbb89"
