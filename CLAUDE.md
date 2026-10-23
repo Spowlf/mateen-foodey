@@ -33,6 +33,8 @@ A personal calorie, macro and exercise tracker for one person in the UK: food in
 ## Commands
 
 - `npm test`: runs every test (`node --test`, no dependencies).
+- `npx wrangler deploy`: deploys the Worker (after any change under `worker/` or `src/engine/`). The app deploys by pushing to `main` (GitHub Pages).
+- The API token is in the macOS Keychain: `security find-generic-password -s mateen-foodey-api-token -w | pbcopy`.
 - `npm run dev`: the app on http://localhost:3000 and the Worker on http://localhost:8787 (Node SQLite, data in `.dev.db`, token `dev-token`). `APP_PORT`, `API_PORT` and `DEV_DB` change the defaults; it listens on 127.0.0.1 only unless `HOST` says otherwise.
 
 ## Decisions
