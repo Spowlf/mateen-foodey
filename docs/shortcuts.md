@@ -13,7 +13,7 @@ Every request has the same header: `Authorization` = `Bearer YOUR-TOKEN` (the wo
 
 ## 1. Sync Health
 
-Sends today's active energy, steps and weight from the Health app. It runs each morning on its own, and from **Sync Health** on Overview. That button opens the Shortcut by name, so the name must be exactly `Sync Health`.
+Sends today's active energy, steps and weight from the Health app. It runs each morning on its own, and from **Sync Health** on Overview. That button opens the Shortcut by name, so the name must be exactly `Sync Health`. iOS always switches to the Shortcuts app to run it; tap ◀ Mateen Foodey in the top-left corner to come back.
 
 In the Shortcuts app, make a new Shortcut called **Sync Health** with these actions:
 
