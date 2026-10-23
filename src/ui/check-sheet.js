@@ -4,15 +4,18 @@
 // the sentence gave kcal for ("780 kcal") shows just that, with Remove.
 // The button reads "Log 3 Items", or says what's missing.
 
-import { h, fill, openSheet, icon } from './dom.js';
-import { foodSub, keepUnits } from './format.js';
+import { h, fill, openSheet, icon, toast } from './dom.js';
+import { foodSub, keepUnits, runAction } from './format.js';
 import { openGramsSheet } from './grams-sheet.js';
 import { createFoodSearch } from './food-search.js';
 import {
   checkButton, lineAmounts, lineEstimated, kcalLine, figuresText, uncertainty, withGrams, sumAmounts, unknownLines, formatGrams,
 } from '../engine/index.js';
 
-/** Picks another food for a line: the parse's alternatives first, then a search. */
+/**
+ * Picks another food for a line: the parse's alternatives first, then a search, or Estimate Instead
+ * when nothing listed is what you ate (one of the day's model calls).
+ */
 function openSwap({ repo, line, onPick }) {
   const input = h('input', {
     class: 'input', type: 'search', value: line.searchTerm ?? line.name, autocomplete: 'off', enterkeyhint: 'search',
@@ -20,6 +23,17 @@ function openSwap({ repo, line, onPick }) {
   });
   const alternatives = (line.alternatives ?? []).filter((f) => f !== line.food);
   const pick = (food) => { onPick(food); s.close(); };
+  const estimateButton = h('button', { type: 'button', class: 'text-button', onclick: () => estimate() }, 'Estimate Instead');
+  async function estimate() {
+    estimateButton.disabled = true;
+    estimateButton.textContent = 'Estimating';
+    const data = await runAction(() => repo.estimate({ name: line.name, grams: line.grams, state: line.state }));
+    estimateButton.disabled = false;
+    estimateButton.textContent = 'Estimate Instead';
+    if (!data) return;
+    pick(data.food);
+    if (data.callsLeft <= 10) toast(`${data.callsLeft} sentence ${data.callsLeft === 1 ? 'log' : 'logs'} left today.`);
+  }
   const results = createFoodSearch({
     repo,
     onPick: pick,
@@ -27,7 +41,7 @@ function openSwap({ repo, line, onPick }) {
       h('button', { type: 'button', class: 'list-row', onclick: () => pick(food) },
         h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, food.name), h('span', { class: 'list-sub' }, foodSub(food)))))))] : []),
   });
-  const s = openSheet({ title: `Food for “${line.name}”` }, h('div', { class: 'sheet-form' }, input, results.el));
+  const s = openSheet({ title: `Food for “${line.name}”` }, h('div', { class: 'sheet-form' }, input, h('div', {}, estimateButton), results.el));
   results.search(input.value, { state: line.state });
   return s;
 }

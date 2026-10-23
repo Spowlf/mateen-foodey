@@ -7,6 +7,7 @@
 //   GET    /search?q=             source foods: CoFID, Open Food Facts, USDA ({ results, unavailable })
 //   GET    /barcode/:code         a packaged food from Open Food Facts ({ food })
 //   POST   /parse                 sentence or photo logging, steps 1 to 3: { text } or { image: { mediaType, data } }
+//   POST   /estimate              step 3 for one item on request: { name, grams?, state?, text? }
 //   POST   /health                the Health Shortcut: { date, activeKcal, steps, weightKg, workouts }; text
 //   GET    /health/weights?from=&to=  weights typed in the app, for the Shortcut to write to Health
 //   GET    /summary?date=         the weekly summary for the week before the one date falls in, as text
@@ -22,7 +23,7 @@ import { createStore } from './store.js';
 import { HttpError, json, text, withCors, authorised, readJson, refuse } from './http.js';
 import { saveRow, saveBatch, deleteRow, ensureSeeded, settingsOf } from './rows.js';
 import { searchFoods, lookupBarcode, validBarcode } from './sources.js';
-import { parseFood } from './parse.js';
+import { parseFood, estimateFood } from './parse.js';
 import { syncHealth, typedWeights } from './health.js';
 
 const TEXT_ROUTES = new Set(['health', 'summary']);
@@ -73,6 +74,7 @@ async function route(request, ctx) {
     return json(await lookupBarcode(ctx, id));
   }
   if (method === 'POST' && first === 'parse' && !id) return json(await parseFood(ctx, await readJson(request)));
+  if (method === 'POST' && first === 'estimate' && !id) return json(await estimateFood(ctx, await readJson(request)));
   if (method === 'POST' && first === 'health' && !id) return text(await syncHealth(ctx, await readJson(request)));
   if (method === 'GET' && first === 'health' && id === 'weights') return json(await typedWeights(ctx, url.searchParams.get('from'), url.searchParams.get('to')));
   if ((method === 'GET' || method === 'POST') && first === 'summary' && !id) {

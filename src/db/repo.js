@@ -207,6 +207,9 @@ export function createRepo({ db, fetch, now = () => Date.now(), newId = () => cr
 
     /** Sentence or photo logging, steps 1 to 3: { items, callsLeft }. */
     parse: (body) => api.post('/parse', body, { timeout: PARSE_TIMEOUT_MS }),
+
+    /** An estimate for one item, in place of its match ({ name, grams, state }): { food, callsLeft }. */
+    estimate: (body) => api.post('/estimate', body, { timeout: PARSE_TIMEOUT_MS }),
   };
   return repo;
 }

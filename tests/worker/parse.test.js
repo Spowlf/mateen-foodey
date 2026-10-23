@@ -167,6 +167,27 @@ test('parse: an item with the kcal you gave keeps it and is never estimated', as
   assert.equal(w.modelCalls[1].body.messages[0].content[0].text.split('\nThey wrote')[0], 'Items:\n1. Mystery stew, 100 g');
 });
 
+test('estimate: one item on request, in place of its match, with its assumptions; it counts in the cost guard', async () => {
+  const w = makeWorker({ routes: EMPTY, model: model([], { 'Potatoes boulangere': estimate('Potatoes boulangere', 120, 'Assumed potatoes baked in stock with onion and butter.') }) });
+  const res = await w.call('POST', '/estimate', { body: { name: 'Potatoes boulangere', grams: 250, state: 'cooked', text: 'potatoes boulangere 250 g' } });
+  assert.equal(res.status, 200);
+  assert.deepEqual([res.body.food.name, res.body.food.source, res.body.food.state, res.body.food.per100g.kcalTenths], ['Potatoes boulangere', 'estimate', 'cooked', 1200]);
+  assert.equal(res.body.food.assumptions, 'Assumed potatoes baked in stock with onion and butter.');
+  assert.ok(!('id' in res.body.food));   // the phone gives it an id when it's logged
+  assert.equal(res.body.callsLeft, DAILY_CALLS - 1);
+  assert.match(w.modelCalls[0].body.messages[0].content[0].text, /^Items:\n1\. Potatoes boulangere, 250 g, cooked\nThey wrote: potatoes boulangere 250 g$/);
+});
+
+test('estimate: a nameless request is refused before any model call', async () => {
+  const w = makeWorker({ model: model([]) });
+  for (const body of [{}, { name: ' ' }, { name: 'x'.repeat(201) }]) {
+    const res = await w.call('POST', '/estimate', { body });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'Nothing changed: name the food to estimate.');
+  }
+  assert.equal(w.modelCalls.length, 0);
+});
+
 test('cost guard: with the limit reached at the estimate step, matched items still come back', async () => {
   const w = makeWorker({ routes: EMPTY, model: model([item('Toast'), item('Mystery stew')]) });
   seedCofid(w, [{ code: '11-001', name: 'Toast', kcal: 260 }]);

@@ -2,10 +2,11 @@
 //   1. Parse: the text or photo becomes items with names and grams (no nutrition is taken from it).
 //   2. Match: each item against your foods, then the source cache, then Open Food Facts and USDA.
 //   3. Estimate: only items nothing matched, with the assumptions behind each estimate.
-// The phone shows the check sheet (step 4) and saves the entries (step 5).
+// The phone shows the check sheet (step 4) and saves the entries (step 5). POST /estimate is step 3
+// for one item on request: "Estimate Instead" on the check sheet, when its match isn't what you ate.
 
 import {
-  PARSE_SCHEMA, ESTIMATE_SCHEMA, cleanParse, cleanEstimate, portionBasisFor, rankFoods, normaliseName,
+  PARSE_SCHEMA, ESTIMATE_SCHEMA, cleanParse, cleanEstimate, cleanGrams, portionBasisFor, rankFoods, normaliseName,
 } from '../../src/engine/index.js';
 import { askJson } from './claude.js';
 import { refuse, HttpError } from './http.js';
@@ -17,6 +18,8 @@ const MAX_IMAGE_BASE64 = 2_000_000;   // about 1.5 MB: a 1,024 px JPEG is far sm
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const OWN_FOODS_IN_PROMPT = 30;
 const ALTERNATIVES = 5;
+const MAX_NAME = 200;
+const STATES = new Set(['raw', 'cooked', 'asSold']);
 
 const PARSE_SYSTEM = `You read what someone in the UK ate and list each food as a separate item. Give no nutrition.
 For each item:
@@ -131,4 +134,18 @@ export async function parseFood(ctx, body, { origin = 'sentence' } = {}) {
     items: items.map((it, i) => ({ ...it, portionBasis: portionBasisFor({ gramsAssumed: it.gramsAssumed, origin }), ...matches[i] })),
     callsLeft,
   };
+}
+
+/**
+ * POST /estimate { name, grams?, state?, text? }: an estimate for one item, in place of its match.
+ * Returns { food, callsLeft }: food is an estimate without an id (the phone gives it one when it's logged).
+ */
+export async function estimateFood(ctx, body) {
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  if (!name || name.length > MAX_NAME) throw refuse('name the food to estimate.');
+  const item = { name, grams: cleanGrams(body.grams), state: STATES.has(body.state) ? body.state : null };
+  const text = typeof body.text === 'string' && body.text.trim() ? body.text.trim().slice(0, MAX_TEXT) : null;
+  const { foods: [food], callsLeft } = await estimates(ctx, [item], text);
+  if (!food) throw refuse('no estimate came back. Search for it instead.', 422);
+  return { food: { ...food, state: item.state ?? food.state, fetchedAt: null }, callsLeft };
 }
