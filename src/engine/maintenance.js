@@ -8,10 +8,10 @@
 // estimate is worked out for each week (to each Sunday before end, then end) and each one is held
 // within 150 kcal of the week before, so nothing extra has to be stored.
 
-import { addDays } from './dates.js';
-import { dayTotal } from './entries.js';
+import { addDays, daysBetween } from './dates.js';
+import { dayTotal, isLive } from './entries.js';
 import { completeDates } from './days.js';
-import { trendSeries, weighInsBetween } from './weight.js';
+import { trendSeries } from './weight.js';
 import { formatKcal } from './nutrition.js';
 
 export const WINDOW_DAYS = 28;
@@ -20,19 +20,45 @@ export const MIN_WEIGH_INS = 8;
 export const WEEKLY_CAP_KCAL = 150;
 export const KCAL_PER_KG = 7700;
 
+/**
+ * What every week's estimate reads, worked out once rather than once a week: each complete day's
+ * intake, oldest first, and the trend to end with how many weigh-ins came before each of its days.
+ */
+function prepare({ entries, days, weights, end }) {
+  const byDate = new Map();
+  for (const e of entries) {
+    if (!isLive(e) || e.date > end) continue;
+    if (!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date).push(e);
+  }
+  const complete = [...completeDates(days)].filter((d) => d <= end).sort()
+    .map((date) => ({ date, kcalMilli: dayTotal(byDate.get(date) ?? [], date).kcalMilli ?? 0 }));
+  const series = trendSeries(weights, end);
+  const weighedBefore = [0];
+  for (const p of series) weighedBefore.push(weighedBefore.at(-1) + (p.readingGrams != null ? 1 : 0));
+  return { complete, series, weighedBefore };
+}
+
+/** The estimate for the 28 days to end from prepare()'s figures, uncapped. */
+function estimateFrom({ complete, series, weighedBefore }, end) {
+  const start = addDays(end, -(WINDOW_DAYS - 1));
+  const inWindow = complete.filter((c) => c.date >= start && c.date <= end);
+  // Series indexes: the trend runs day by day from the first reading, so a date's index is its day count from it.
+  const at = (date) => (series.length ? daysBetween(series[0].date, date) : -1);
+  const last = at(end);
+  const weighIns = last < 0 ? 0 : weighedBefore[last + 1] - weighedBefore[Math.max(0, at(start))];
+  const base = { completeDays: inWindow.length, weighIns };
+  if (inWindow.length < MIN_COMPLETE_DAYS || weighIns < MIN_WEIGH_INS) return { ok: false, ...base };
+  const intakeMilli = inWindow.reduce((s, c) => s + c.kcalMilli, 0);
+  // The trend's change across the window: from the day before it (or the first reading in it) to its last day.
+  const changeGrams = series[last].trendGrams - series[Math.max(0, at(addDays(start, -1)))].trendGrams;
+  const kcal = intakeMilli / inWindow.length / 1000 - (KCAL_PER_KG * changeGrams) / 1000 / WINDOW_DAYS;
+  return { ok: true, ...base, kcal: Math.round(kcal), changeGrams };
+}
+
 /** The estimate for the 28 days to end, uncapped: { ok, kcal?, completeDays, weighIns }. */
 export function rawEstimate({ entries, days, weights, end }) {
-  const start = addDays(end, -(WINDOW_DAYS - 1));
-  const complete = [...completeDates(days)].filter((d) => d >= start && d <= end);
-  const weighIns = weighInsBetween(weights, start, end);
-  const base = { completeDays: complete.length, weighIns };
-  if (complete.length < MIN_COMPLETE_DAYS || weighIns < MIN_WEIGH_INS) return { ok: false, ...base };
-  const intakeMilli = complete.reduce((s, d) => s + (dayTotal(entries, d).kcalMilli ?? 0), 0);
-  // The trend's change across the window: from the day before it (or the first reading in it) to its last day.
-  const series = trendSeries(weights, end).filter((p) => p.date >= addDays(start, -1) && p.trendGrams != null);
-  const changeGrams = series.length ? series.at(-1).trendGrams - series[0].trendGrams : 0;
-  const kcal = intakeMilli / complete.length / 1000 - (KCAL_PER_KG * changeGrams) / 1000 / WINDOW_DAYS;
-  return { ok: true, ...base, kcal: Math.round(kcal), changeGrams };
+  return estimateFrom(prepare({ entries, days, weights, end }), end);
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -54,12 +80,13 @@ export function neededMessage({ completeDays, weighIns }) {
  * { ok: true, kcal, completeDays, weighIns, capped, text } or { ok: false, completeDays, weighIns, text }.
  */
 export function maintenanceEstimate({ entries, days, weights, end }) {
-  const latest = rawEstimate({ entries, days, weights, end });
+  const prepared = prepare({ entries, days, weights, end });
+  const latest = estimateFrom(prepared, end);
   if (!latest.ok) return { ...latest, text: neededMessage(latest) };
   // Walk back week by week while the estimate holds, then forward, capping each week's move.
   const chain = [latest];
   for (let e = addDays(end, -7); ; e = addDays(e, -7)) {
-    const r = rawEstimate({ entries, days, weights, end: e });
+    const r = estimateFrom(prepared, e);
     if (!r.ok) break;
     chain.unshift(r);
   }

@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { maintenanceEstimate, rawEstimate, neededMessage } from '../../src/engine/maintenance.js';
+import { addDays } from '../../src/engine/dates.js';
+import { dayTotal } from '../../src/engine/entries.js';
+import { completeDates } from '../../src/engine/days.js';
+import { trendSeries, weighInsBetween } from '../../src/engine/weight.js';
 import { eaten, weighIn, day, range } from './fixtures.js';
 
 // 28-day window to Sunday 18 Oct 2026 starts Monday 21 Sep.
@@ -67,6 +71,62 @@ test('maintenance message: built from what’s still needed, each part only whil
   assert.equal(neededMessage({ completeDays: 14, weighIns: 8 }), null);
   const none = maintenanceEstimate({ entries: [], days: [], weights: [], end: END });
   assert.equal(none.text, 'Log 14 more complete days and add 8 more weigh-ins.');
+});
+
+// The estimate worked out the plain way, week by week from the raw data: what the fast one must match.
+function plainEstimate({ entries, days, weights, end }) {
+  const raw = (e) => {
+    const start = addDays(e, -27);
+    const complete = [...completeDates(days)].filter((d) => d >= start && d <= e);
+    const weighIns = weighInsBetween(weights, start, e);
+    if (complete.length < 14 || weighIns < 8) return null;
+    const intake = complete.reduce((s, d) => s + (dayTotal(entries, d).kcalMilli ?? 0), 0);
+    const series = trendSeries(weights, e).filter((p) => p.date >= addDays(start, -1) && p.trendGrams != null);
+    const change = series.length ? series.at(-1).trendGrams - series[0].trendGrams : 0;
+    return Math.round(intake / complete.length / 1000 - (7700 * change) / 1000 / 28);
+  };
+  const chain = [];
+  for (let e = end; raw(e) != null; e = addDays(e, -7)) chain.unshift(raw(e));
+  if (!chain.length) return null;
+  let kcal = chain[0];
+  for (const r of chain.slice(1)) kcal = Math.min(kcal + 150, Math.max(kcal - 150, r));
+  return kcal;
+}
+
+/** Two years with gaps, deleted entries, unknown kcal, changing weight and every day state. */
+function longData() {
+  const dates = range('2024-10-01', END);
+  const entries = [];
+  const days = [];
+  const weights = [];
+  dates.forEach((d, i) => {
+    if (i % 11 === 5) return;   // a day with nothing at all
+    entries.push(eaten(d, 1500 + ((i * 37) % 1200)), eaten(d, 300 + (i % 5) * 50));
+    if (i % 13 === 0) entries.push(eaten(d, 900, { deletedAt: 1 }));
+    if (i % 17 === 0) entries.push({ ...eaten(d, 0), nutrition: { ...eaten(d, 0).nutrition, kcalMilli: null } });
+    if (i % 7 !== 3) days.push(day(d, i % 9 === 0 ? 'incomplete' : 'complete'));
+    if (i % 3 !== 1) weights.push(weighIn(d, 90_000 - i * 15 + ((i * 53) % 900)));
+  });
+  return { entries, days, weights };
+}
+
+test('maintenance: matches the estimate worked out week by week from the raw data', () => {
+  const d = longData();
+  for (const end of [END, '2026-10-14', '2025-06-30', '2024-11-20']) {
+    assert.equal(maintenanceEstimate({ ...d, end }).kcal ?? null, plainEstimate({ ...d, end }), end);
+  }
+});
+
+test('maintenance: years of data take milliseconds, not a second', () => {
+  const dates = range('2023-10-19', END);
+  const d = {
+    entries: dates.flatMap((date) => Array.from({ length: 12 }, () => eaten(date, 180))),
+    days: dates.map((date) => day(date, 'complete')),
+    weights: range('2018-10-19', END).map((date) => weighIn(date, 80_000)),
+  };
+  const started = performance.now();
+  maintenanceEstimate({ ...d, end: END });
+  assert.ok(performance.now() - started < 100, `took ${Math.round(performance.now() - started)} ms`);
 });
 
 test('maintenance: moves at most 150 kcal a week', () => {
