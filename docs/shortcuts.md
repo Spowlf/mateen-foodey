@@ -24,8 +24,9 @@ In the Shortcuts app, make a new Shortcut called **Sync Health** with these acti
 5. **Adjust Date**: *Get Start of Day* of *Adjusted Date*. Rename the result *Start*.
 6. **Adjust Date**: *Add* 1 *day* to *Start*. Rename the result *End*.
 7. **Format Date**: *Start*, Date Format *Custom*, `yyyy-MM-dd`. Rename the result *Day*.
-8. **Find Health Samples** where *Type* is *Active Energy* and *Start Date* is between *Start* and *End*. Then **Calculate Statistics**: *Sum*. Rename the result *Active*.
-9. **Find Health Samples** where *Type* is *Steps* and *Start Date* is between *Start* and *End*. Then **Calculate Statistics**: *Sum*. Rename the result *Steps*.
+8. **Find Health Samples** where *Type* is *Active Energy*, *Start Date* is between *Start* and *End*, and *Source* is your Apple Watch, with *Group by* *Day* and *Limit* off. Then **Calculate Statistics**: *Sum*. Rename the result *Active*.
+9. **Find Health Samples** where *Type* is *Steps*, *Start Date* is between *Start* and *End*, and *Source* is your Apple Watch, with *Group by* *Day* and *Limit* off. Then **Calculate Statistics**: *Sum*. Rename the result *Steps*.
+   - The Source filter matters: the iPhone and the Watch both record steps and active energy, and Shortcuts adds every source's samples, where the Health app removes the overlap. With the Watch alone the figures come within a few percent of Health's; steps taken while the Watch is off don't count. (Add a Source filter with **Add Filter**, then tap *Type* in the new row and choose *Source*.)
 10. **Find Health Samples** where *Type* is *Weight* and *Start Date* is between *Start* and *End*, sorted by *Start Date*, *Latest First*, limit 1. Then **Get Details of Health Sample**: *Value*. Rename the result *Weight*.
     - If Health shows your weight in stones or pounds, add **Convert Measurement** to *kilograms* after it. The Worker takes kilograms.
 11. **Dictionary** with:
@@ -37,6 +38,8 @@ In the Shortcuts app, make a new Shortcut called **Sync Health** with these acti
 13. **Add to Variable**: *Contents of URL*, variable *Synced*.
 14. **End Repeat**.
 15. **Combine Text**: *Synced*, with *New Lines*. Then **Show Notification**: *Combined Text*.
+
+A whole day is hundreds of Health samples, more than Shortcuts shares by default. Turn on Settings → Apps → Shortcuts → Advanced → **Allow Sharing Large Amounts of Data**, and choose **Always Allow** when it asks to share with your Worker.
 
 Run it once by hand. The notification should read like:
 
