@@ -5,6 +5,7 @@ import { NUTRIENTS, amountsFor, sumAmounts } from './nutrition.js';
 import { isLive } from './entries.js';
 import { rankFoods, sourceKey } from './match.js';
 import { MAX_GRAMS } from './parse.js';
+import { servedAmounts, batchesOf } from './recipes.js';
 
 /** The most a field may hold per 100 g: energy in kcal, nutrients in grams. */
 const MAX_KCAL = 900;
@@ -103,7 +104,7 @@ export function adoptFoods({ lines, foods, newId }) {
   const own = new Map(foods.filter((f) => isLive(f) && f.sourceId && f.source !== 'estimate').map((f) => [sourceKey(f), f]));
   const added = [];
   const out = lines.map((line) => {
-    if (line.food.id) return line;
+    if (!line.food || line.food.id) return line;   // a recipe line, or a food that's already yours
     const key = line.food.source !== 'estimate' && line.food.sourceId ? sourceKey(line.food) : null;
     let food = (key && own.get(key)) ?? null;
     if (!food) {
@@ -120,26 +121,43 @@ export function adoptFoods({ lines, foods, newId }) {
   return { foods: added, lines: out };
 }
 
-/** Lines ({ food, grams }) as stored on a saved meal or recipe: [{ foodId, grams }]. */
-export const storedLines = (lines) => lines.map((l) => ({ foodId: l.food.id, grams: l.grams }));
+/**
+ * Lines ({ food, grams }, or on a saved meal { recipe, batch, grams }) as stored: [{ foodId, grams }]
+ * or [{ recipeId, grams }].
+ */
+export const storedLines = (lines) => lines.map((l) => (l.recipe ? { recipeId: l.recipe.id, grams: l.grams } : { foodId: l.food.id, grams: l.grams }));
 
 /**
  * Stored lines back as { food, grams } for editing or totals, with the food they name (a deleted
- * food still counts: what you saved keeps working). Lines whose food is missing are left out.
+ * food still counts: what you saved keeps working). A saved meal's recipe line comes back as
+ * { recipe, batch, grams }, batch its latest (null when it has none). Lines whose food or recipe is
+ * missing are left out.
  */
-export function linesWithFoods(stored, foods) {
+export function linesWithFoods(stored, foods, { recipes = [], batches = [] } = {}) {
   const byId = new Map(foods.map((f) => [f.id, f]));
-  return (stored ?? []).filter((l) => byId.has(l.foodId)).map((l) => ({ food: byId.get(l.foodId), grams: l.grams, portionBasis: 'typed' }));
+  const recipeById = new Map(recipes.map((r) => [r.id, r]));
+  return (stored ?? []).flatMap((l) => {
+    if (l.recipeId) {
+      const recipe = recipeById.get(l.recipeId);
+      return recipe ? [{ recipe, batch: batchesOf(batches, recipe.id)[0] ?? null, grams: l.grams, portionBasis: 'typed' }] : [];
+    }
+    return byId.has(l.foodId) ? [{ food: byId.get(l.foodId), grams: l.grams, portionBasis: 'typed' }] : [];
+  });
 }
+
+// A line's nutrition (a recipe line's from its batch, null without one) and whether it's "~".
+const amountsOf = (l) => (l.recipe ? (l.batch ? servedAmounts(l.batch, l.grams) : null) : amountsFor(l.food.per100g, l.grams, l.food));
+
+const estimatedOf = (l) => (l.recipe ? !!l.batch?.totals.estimated : l.food.source === 'estimate' || l.portionBasis === 'guessed');
 
 /**
  * Lines ({ food, grams }) together: { amounts, estimated }, or null until every line has its grams.
  * Estimated ("~") when any food is an estimate.
  */
 export function linesTotal(lines) {
-  if (!lines.length || lines.some((l) => !(Number.isInteger(l.grams) && l.grams > 0))) return null;
+  if (!lines.length || lines.some((l) => !(Number.isInteger(l.grams) && l.grams > 0) || (l.recipe && !l.batch))) return null;
   return {
-    amounts: sumAmounts(lines.map((l) => amountsFor(l.food.per100g, l.grams, l.food))),
-    estimated: lines.some((l) => l.food.source === 'estimate' || l.portionBasis === 'guessed'),
+    amounts: sumAmounts(lines.map(amountsOf)),
+    estimated: lines.some(estimatedOf),
   };
 }

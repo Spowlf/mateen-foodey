@@ -23,6 +23,9 @@ const validAmounts = (a) => a && typeof a === 'object' && AMOUNT_FIELDS.every((f
 /** Lines naming a food and its grams: recipe ingredients, saved meal items, batch ingredients. */
 const validLines = (lines) => Array.isArray(lines) && lines.every((l) => l && typeof l.foodId === 'string' && int(l.grams, 1, MAX_GRAMS));
 
+/** A saved meal's items: each a food or a recipe (served from its latest batch), with its grams. */
+const validItems = (items) => Array.isArray(items) && items.every((l) => l && (typeof l.foodId === 'string') !== (typeof l.recipeId === 'string') && int(l.grams, 1, MAX_GRAMS));
+
 export { DEFAULT_SETTINGS };
 
 /** What's wrong with a live row, as the end of "Nothing changed: …", or null. */
@@ -47,7 +50,7 @@ function check(name, row) {
       if (!oneOf('logged', 'toCheck')(row.status) || !oneOf('manual', 'sentence', 'photo', 'shortcut', 'quick')(row.origin)) return 'log it again.';
       return null;
     case 'savedMeals':
-      return validLines(row.items) && row.items.length ? null : 'add at least one food, each with its grams.';
+      return validItems(row.items) && row.items.length ? null : 'add at least one food or recipe, each with its grams.';
     case 'recipes':
       return validLines(row.ingredients) ? null : 'give each ingredient its grams.';
     case 'batches':

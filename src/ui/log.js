@@ -123,7 +123,7 @@ export function renderLog(root, { repo }) {
               else e.currentTarget.disabled = false;
             },
           },
-          h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, m.name), h('span', { class: 'list-sub' }, savedMealSub(m, S.foods)))))))));
+          h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, m.name), h('span', { class: 'list-sub' }, savedMealSub(m, S)))))))));
   }
 
   function renderQuick() {

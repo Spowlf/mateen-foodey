@@ -1,4 +1,4 @@
-// A saved meal: a name and its foods, each at its grams. Log a Saved Meal on Log logs them all.
+// A saved meal: a name and its foods and recipes, each at its grams. Log a Saved Meal on Log logs them all.
 
 import { h, fill, field, openSheet, toast } from './dom.js';
 import { runAction, mealNow, loggedToast, deleteWithUndo, offlineLabel, keepUnits } from './format.js';
@@ -9,25 +9,30 @@ import {
 
 /** Logs a saved meal's foods to meal, with Undo. Resolves true when logged. */
 export async function logSavedMeal(repo, savedMeal, meal = mealNow(repo)) {
-  const lines = linesWithFoods(savedMeal.items, repo.state.foods);
+  const lines = withRecipes(savedMeal.items, repo.state);
+  const unmade = lines.find((l) => l.recipe && !l.batch);
+  if (unmade) { toast(`Nothing changed: make ${unmade.recipe.name} first, then log this meal.`); return false; }
   const entries = await runAction(() => repo.logLines({ lines, date: today(), meal, origin: 'manual', savedMealId: savedMeal.id }));
   if (!entries) return false;
   loggedToast(repo, entries);
   return true;
 }
 
-/** "3 foods, 540 kcal" */
-export function savedMealSub(savedMeal, foods) {
-  const lines = linesWithFoods(savedMeal.items, foods);
+/** A saved meal's items as lines: foods, and recipes with their latest batch. */
+const withRecipes = (items, S) => linesWithFoods(items, S.foods, { recipes: S.recipes, batches: S.batches });
+
+/** "3 items, 540 kcal" */
+export function savedMealSub(savedMeal, S) {
+  const lines = withRecipes(savedMeal.items, S);
   const total = linesTotal(lines);
   const n = lines.length;
-  return keepUnits([`${n} ${n === 1 ? 'food' : 'foods'}`, total && figuresText(total.amounts, total).split(', ')[0]].filter(Boolean).join(', '));
+  return keepUnits([`${n} ${n === 1 ? 'item' : 'items'}`, total && figuresText(total.amounts, total).split(', ')[0]].filter(Boolean).join(', '));
 }
 
 /** openSavedMealSheet({ repo, savedMeal }): savedMeal null adds a new one. */
 export function openSavedMealSheet({ repo, savedMeal = null }) {
   const isNew = !savedMeal;
-  const start = linesWithFoods(savedMeal?.items ?? [], repo.state.foods);
+  const start = withRecipes(savedMeal?.items ?? [], repo.state);
   let busy = false;
   let dirty = isNew;
 
@@ -48,6 +53,7 @@ export function openSavedMealSheet({ repo, savedMeal = null }) {
     const lines = editor.lines();
     if (!name.value.trim()) return 'Enter a Name';
     if (!lines.length) return 'Add a Food';
+    if (lines.some((l) => l.recipe && !l.batch)) return 'Make the Recipe First';
     if (lines.some((l) => !(l.grams > 0))) return 'Enter the Grams';
     return null;
   }

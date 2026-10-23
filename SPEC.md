@@ -37,7 +37,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
   - `nutritionBasis`: `database` (a source or the user's own food), `estimate` or `quick` (typed kcal).
   - `portionBasis`: `weighed` or `typed` (grams entered by the user), `serving` (a labelled serving), or `guessed` (grams the parser assumed and the user didn't change).
   - `meal`: breakfast, lunch, dinner or snacks. `status`: `logged` or `toCheck`. `origin`: manual, sentence, photo, shortcut or quick.
-- **Saved meals** `{ id, name, items: [{ foodId, grams }] }`.
+- **Saved meals** `{ id, name, items: [{ foodId, grams } or { recipeId, grams }] }`. A recipe item is grams served from the recipe's latest batch when the meal is logged.
 - **Recipes**, **batches** and **pots**: see Recipes.
 - **Days** `{ date, state }`, `state`: `unreviewed`, `complete` or `incomplete`. See Honest gaps.
 - **Weights** `{ id, date, grams, source }`, one per date; the latest wins.
@@ -47,7 +47,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 ## Logging
 
 - **Headline** at the top of Log: "~1,240 kcal left today." or "180 kcal over today." in plain ink, never red. Under it: "92 g protein to go." or "Protein target reached." The headline, protein, Log a Saved Meal and the add field come before anything else on the screen.
-- **Saved meals**: "Log a Saved Meal" opens the list of saved meals; a tap logs one to the chosen meal slot, with Undo. A saved meal's foods can be chosen from My Foods as well as searched or typed.
+- **Saved meals**: "Log a Saved Meal" opens the list of saved meals; a tap logs one to the chosen meal slot, with Undo. A saved meal's foods can be chosen from My Foods or Recipes as well as searched or typed. A recipe offers a third, a quarter or a fifth of its latest batch, or typed grams.
 - **Sentence logging** ("two eggs, toast with butter, flat white") runs in five steps:
   1. **Parse**: `POST /parse` sends the text to Claude Haiku 5.5 (`claude-haiku-5-5`) with the 30 most-logged foods, so "my usual porridge" resolves. A JSON schema returns `[{ name, quantity, unit, grams, gramsAssumed, state, searchTerm }]`; `gramsAssumed` is true when the sentence gave no amount. No nutrition comes from this step.
   2. **Match**: each item against the user's foods, then the cache, then Open Food Facts, CoFID and USDA.

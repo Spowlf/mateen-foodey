@@ -163,3 +163,15 @@ test('batch: rows need ids, each once', async () => {
   assert.equal((await w.call('POST', '/batch', { body: { pots: [{ id: 'p', name: 'Pan', grams: 1 }, { id: 'p', name: 'Pan', grams: 2 }] } })).body.error, 'Nothing changed: send each row once.');
   assert.equal((await w.call('POST', '/batch', { body: {} })).body.error, 'Nothing changed: send at least one row.');
 });
+
+test('PUT: a saved meal item is a food or a recipe, and the recipe must be saved', async () => {
+  const w = makeWorker();
+  await w.call('PUT', '/foods/f-oats', { body: food() });
+  const missing = await w.call('PUT', '/savedMeals/m1', { body: { name: 'Lunch', items: [{ recipeId: 'r-missing', grams: 200 }] } });
+  assert.equal(missing.body.error, 'Nothing changed: a saved meal names a recipe that isn’t saved yet.');
+  const both = await w.call('PUT', '/savedMeals/m1', { body: { name: 'Lunch', items: [{ foodId: 'f-oats', recipeId: 'r1', grams: 200 }] } });
+  assert.equal(both.body.error, 'Nothing changed: add at least one food or recipe, each with its grams.');
+  await w.call('PUT', '/recipes/r1', { body: { name: 'Chilli', ingredients: [{ foodId: 'f-oats', grams: 100 }] } });
+  const ok = await w.call('PUT', '/savedMeals/m1', { body: { name: 'Lunch', items: [{ foodId: 'f-oats', grams: 40 }, { recipeId: 'r1', grams: 200 }] } });
+  assert.equal(ok.status, 200);
+});

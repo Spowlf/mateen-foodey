@@ -52,7 +52,7 @@ export function renderFoods(root, { repo }) {
     if (view === 'meals') {
       const meals = S.savedMeals.filter(isLive).sort(byName);
       return fill(list, meals.length
-        ? h('ul', { class: 'list', 'aria-label': 'Saved meals' }, meals.map((m) => row(m.name, savedMealSub(m, S.foods), () => openSavedMealSheet({ repo, savedMeal: m }))))
+        ? h('ul', { class: 'list', 'aria-label': 'Saved meals' }, meals.map((m) => row(m.name, savedMealSub(m, S), () => openSavedMealSheet({ repo, savedMeal: m }))))
         : h('p', { class: 'empty-line' }, 'Save a meal you eat often, and log it from Log in one tap.'));
     }
     const recipes = S.recipes.filter(isLive).sort(byName);

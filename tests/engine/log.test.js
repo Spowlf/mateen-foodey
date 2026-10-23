@@ -137,3 +137,16 @@ test('log lines: entries from a saved meal say so', () => {
   assert.equal(entries[0].savedMealId, 'm1');
   assert.equal(checkButton([{ name: 'Oats', food: OATS, grams: 50 }], 'add').label, 'Add 1 Item');
 });
+
+test('log lines: a saved meal’s recipe line is served from its batch, and needs one', async () => {
+  const { batchLine, batchTotals } = await import('../../src/engine/recipes.js');
+  const ingredients = [batchLine(OATS, 80), batchLine(MILK, 400)];
+  const batch = { id: 'b1', recipeId: 'r1', date: '2026-10-20', ingredients, totals: batchTotals(ingredients), finishedGrams: 480, portions: null };
+  const recipe = { id: 'r1', name: 'Overnight oats' };
+  let n = 0;
+  const { foods, entries } = logLines({ lines: [{ recipe, batch, grams: 120 }], foods: [], date: '2026-10-23', meal: 'lunch', newId: () => `id${++n}`, now: 1, savedMealId: 'm1' });
+  assert.equal(foods.length, 0);
+  assert.deepEqual([entries[0].batchId, entries[0].foodId, entries[0].name, entries[0].grams, entries[0].savedMealId], ['b1', null, 'Overnight oats', 120, 'm1']);
+  assert.equal(entries[0].nutrition.kcalMilli, Math.round(batch.totals.kcalMilli / 4));
+  assert.throws(() => logLines({ lines: [{ recipe, batch: null, grams: 120 }], foods: [], date: '2026-10-23', meal: 'lunch', newId: () => 'x', now: 1 }), /Make Overnight oats first/);
+});

@@ -27,6 +27,7 @@ export const REFERENCES = [
   ['batches', (r) => (Array.isArray(r.ingredients) ? r.ingredients.map((l) => l?.foodId) : []), 'foods', 'a batch names a food'],
   ['recipes', (r) => (Array.isArray(r.ingredients) ? r.ingredients.map((l) => l?.foodId) : []), 'foods', 'a recipe names a food'],
   ['savedMeals', (r) => (Array.isArray(r.items) ? r.items.map((l) => l?.foodId) : []), 'foods', 'a saved meal names a food'],
+  ['savedMeals', (r) => (Array.isArray(r.items) ? r.items.map((l) => l?.recipeId) : []), 'recipes', 'a saved meal names a recipe'],
 ];
 
 /**

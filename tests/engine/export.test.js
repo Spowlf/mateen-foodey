@@ -66,6 +66,7 @@ test('restore check: broken references between foods, recipes, batches, pots and
     [(t) => { t.batches[0].ingredients[0].foodId = 'gone'; }, 'a batch names a food'],
     [(t) => { t.recipes[0].ingredients[0].foodId = 'gone'; }, 'a recipe names a food'],
     [(t) => { t.savedMeals[0].items[0].foodId = 'gone'; }, 'a saved meal names a food'],
+    [(t) => { t.savedMeals[0].items.push({ recipeId: 'gone', grams: 100 }); }, 'a saved meal names a recipe'],
   ];
   for (const [fn, what] of cases) {
     assert.deepEqual(readBackup(changed(fn)), { ok: false, message: `Nothing changed: ${what} that isn’t in the backup.` }, what);

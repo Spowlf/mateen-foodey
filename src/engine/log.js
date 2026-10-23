@@ -3,7 +3,7 @@
 import { addDays, today, nowTime, formatDay } from './dates.js';
 import { amountsFor, kcalOf, gramsOf, formatKcal, formatGrams } from './nutrition.js';
 import { foodEntry, isLive, dayTotal } from './entries.js';
-import { hasLeft } from './recipes.js';
+import { hasLeft, batchEntry } from './recipes.js';
 import { MAX_GRAMS } from './parse.js';
 import { adoptFoods } from './foods.js';
 import { titleCase } from './text.js';
@@ -95,13 +95,21 @@ export function checkButton(lines, verb = 'log') {
 /**
  * What logging lines saves: { foods, entries }. Each line's food becomes one of yours (see
  * adoptFoods), and each entry copies its food's name, nutrition and assumptions. newId() gives fresh
- * ids. savedMealId marks entries logged from a saved meal.
+ * ids. savedMealId marks entries logged from a saved meal. A recipe line ({ recipe, batch, grams })
+ * is served from its batch, as batchEntry does.
  */
 export function logLines({ lines, foods, date, meal, origin = 'manual', newId, now, savedMealId = null }) {
   const adopted = adoptFoods({ lines, foods, newId });
-  const entries = adopted.lines.map((line) => foodEntry({
-    id: newId(), food: line.food, grams: line.grams, date, meal, portionBasis: line.portionBasis ?? 'typed', origin, createdAt: now, savedMealId,
-  }));
+  const entries = adopted.lines.map((line) => {
+    if (!line.recipe) {
+      return foodEntry({
+        id: newId(), food: line.food, grams: line.grams, date, meal, portionBasis: line.portionBasis ?? 'typed', origin, createdAt: now, savedMealId,
+      });
+    }
+    // A saved meal's recipe line: grams served from the recipe's latest batch.
+    if (!line.batch) throw new RangeError(`Make ${line.recipe.name} first, then log it.`);
+    return { ...batchEntry({ id: newId(), batch: line.batch, name: line.recipe.name, grams: line.grams, date, meal, createdAt: now, origin }), savedMealId };
+  });
   return { foods: adopted.foods, entries };
 }
 

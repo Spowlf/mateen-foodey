@@ -82,3 +82,19 @@ test('lines together: unknowns carried, "~" when a food is an estimate, nothing 
   assert.equal(linesTotal([{ food: OATS, grams: null }]), null);
   assert.equal(linesTotal([]), null);
 });
+
+test('saved meal lines: a recipe is stored by id, served from its latest batch, and totals from it', async () => {
+  const { batchLine, batchTotals } = await import('../../src/engine/recipes.js');
+  const recipe = { id: 'r1', name: 'Overnight oats', ingredients: [] };
+  const ingredients = [batchLine(OATS, 80), batchLine(MILK, 400)];
+  const old = { id: 'b-old', recipeId: 'r1', date: '2026-10-01', ingredients, totals: batchTotals(ingredients), finishedGrams: 400, portions: null };
+  const latest = { ...old, id: 'b-new', date: '2026-10-20', finishedGrams: 480 };
+  const stored = [{ foodId: 'f-oats', grams: 40 }, { recipeId: 'r1', grams: 240 }, { recipeId: 'gone', grams: 5 }];
+  const lines = linesWithFoods(stored, [OATS], { recipes: [recipe], batches: [old, latest] });
+  assert.deepEqual(lines.map((l) => l.food?.id ?? l.batch.id), ['f-oats', 'b-new']);
+  assert.deepEqual(storedLines(lines), stored.slice(0, 2));
+  const t = linesTotal(lines);
+  assert.equal(t.amounts.kcalMilli, 150_000 + Math.round(batchTotals(ingredients).kcalMilli / 2));   // half the batch
+  assert.equal(linesTotal([{ recipe, batch: null, grams: 100 }]), null);                               // not made yet
+  assert.equal(adoptFoods({ lines, foods: [], newId: () => 'x' }).foods.length, 0);                    // a recipe line adds no food
+});
