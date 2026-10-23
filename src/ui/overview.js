@@ -1,6 +1,6 @@
 // Overview: Today, a week or a month. The raised panel answers "how am I doing?": today's kcal
 // against its target, or a period's average of complete days against theirs, then protein days.
-// Below: macros as meters, calories by meal, the top 5 foods, and Sync Health.
+// Below: macros as meters, calories by meal, the top 5 foods, and when Health last synced.
 
 import { h, fill, segmented, icon } from './dom.js';
 import { keepUnits } from './format.js';
@@ -10,8 +10,6 @@ import {
   today, periodBounds, stepPeriod, periodTitle, periodSummary, macroMeters, proteinDaysText, averageText, lastHealthSync,
   targetOn, dayExercise, workoutsOn, dayTotal, entriesOn, isEstimated, kcalOf, formatKcal, mealName, syncedPhrase, titleCase,
 } from '../engine/index.js';
-
-const SYNC_HEALTH = 'shortcuts://run-shortcut?name=Sync%20Health';
 
 // The view and period are kept while you move between tabs.
 let view = 'today';
@@ -131,8 +129,7 @@ export function renderOverview(root, { repo }) {
       view === 'today' && exerciseSection(now),
       h('section', { class: 'section', 'aria-label': 'Health' },
         view !== 'today' && h('h2', { class: 'subhead' }, 'Health'),
-        h('p', { class: 'reason' }, healthAt ? `${syncedPhrase(healthAt).replace('Last synced', 'Health last synced')}.` : 'Health hasn’t synced yet. Set up the Sync Health Shortcut first.'),
-        h('div', {}, h('a', { class: 'text-button', href: SYNC_HEALTH }, 'Sync Health'))));
+        h('p', { class: 'reason' }, healthAt ? `${syncedPhrase(healthAt).replace('Last synced', 'Health last synced')}.` : 'Health hasn’t synced yet. Set up the Sync Health Shortcut first.')));
   }
 
   render();

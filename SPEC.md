@@ -75,7 +75,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 
 ## Exercise and Health
 
-- **Health Shortcut**: `POST /health { date, activeKcal, steps, weightKg, workouts }` replaces that date's activity, adds each workout once (matched by start and type) and saves the weight. It runs from a personal automation (after dismissing the morning alarm) and from "Sync Health" on Overview, which opens `shortcuts://run-shortcut?name=Sync%20Health`. Setup is in `docs/shortcuts.md`.
+- **Health Shortcut**: `POST /health { date, activeKcal, steps, weightKg, workouts }` replaces that date's activity, adds each workout once (matched by start and type) and saves the weight. It runs from a personal automation (after dismissing the morning alarm), or by hand from the Shortcuts app. Setup is in `docs/shortcuts.md`.
 - **Manual exercise**: an activity from `data/activities.json` (MET values from the Compendium of Physical Activities, with sources) and minutes. kcal = (MET − 1) × body kg × hours, using the latest weight, marked "~". This is net energy, above resting, the same basis as Apple Health's active energy.
 - On a day with Health active energy, manual workouts don't add to it, because Health already counts them.
 - **Weight history**: `scripts/import-health-weights.js`, run on the Mac, reads the Health app's export and uploads body weight records once.
@@ -99,7 +99,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 
 ## Overview
 
-Today / Week / Month. The week view's main figure is the average kcal of complete days against target, followed by protein days ("Protein reached on 5 of 7 days."), macros as meters, calories by meal and the top 5 foods by kcal. "Sync Health" with the last sync time.
+Today / Week / Month. The week view's main figure is the average kcal of complete days against target, followed by protein days ("Protein reached on 5 of 7 days."), macros as meters, calories by meal and the top 5 foods by kcal. When Health last synced.
 
 ## Weight
 
@@ -119,7 +119,7 @@ The review happens on Monday morning and covers the previous Monday to Sunday.
 ## Screens
 
 1. **Log**: headline, weekly review card (when due), To check, quick log, sentence and photo logging, search, barcode, quick add.
-2. **Overview**: Today / Week / Month, Sync Health.
+2. **Overview**: Today / Week / Month, when Health last synced.
 3. **Foods**: My Foods / Saved Meals / Recipes; pots.
 4. **History**: grouped by day, with each day's state; search; edit and delete with Undo; Copy to Today; Mark Complete / Mark Incomplete.
 5. **Weight**: trend, chart, estimate, Add Weight.

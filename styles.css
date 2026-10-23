@@ -353,8 +353,6 @@ main {
 .data-table thead th { border-top: 0; color: var(--ink-2); font-weight: 600; }
 /* Figures never wrap and keep a gap from the column before, so neighbouring weights can't run together. */
 .data-table td, .data-table thead th + th { text-align: right; padding-left: var(--s3); white-space: nowrap; }
-/* A link that acts like a text button (Sync Health opens Shortcuts). */
-a.text-button { display: inline-flex; align-items: center; text-decoration: none; }
 
 /* History: each day's head (its state as a tag, its total), then its meals, each a list under a small heading. */
 
