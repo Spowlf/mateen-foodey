@@ -99,9 +99,7 @@ export function createLinesEditor({ repo, lines: start, what = 'food', placehold
   }
 
   function render() {
-    fill(list, lines.length
-      ? h('ul', { class: 'list', 'aria-label': titleCase(`${what}s`) }, lines.map(row))
-      : h('p', { class: 'empty-line' }, `No ${what}s yet. Add them below.`));
+    fill(list, lines.length > 0 && h('ul', { class: 'list', 'aria-label': titleCase(`${what}s`) }, lines.map(row)));
   }
 
   const el = h('div', { class: 'section' }, list, h('div', { class: 'add' }, box, h('div', {}, checkButton), results.el));

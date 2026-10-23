@@ -131,7 +131,7 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
 
   const date = h('input', { class: 'input', type: 'date', value: batch?.date ?? today(), max: today(), oninput: () => render() });
   const editor = createLinesEditor({
-    repo, lines: start, what: 'ingredient', placeholder: '500 g beef mince, 1 onion, 400 g chopped tomatoes', onChange: () => render(),
+    repo, lines: start, what: 'ingredient', onChange: () => render(),
   });
   const weighed = numberInput({ value: batch?.weighedGrams ? String(batch.weighedGrams) : '', oninput: () => render() });
   const count = numberInput({ value: batch?.portions ? String(batch.portions) : '', placeholder: 'Optional', oninput: () => render() });
@@ -245,11 +245,11 @@ export function openRecipeEditor({ repo, recipe = null }) {
   let dirty = isNew;
   const name = h('input', {
     class: 'input', type: 'text', autocomplete: 'off', autocapitalize: 'sentences', enterkeyhint: 'done',
-    value: recipe?.name ?? '', placeholder: 'Chilli', oninput: () => { dirty = true; render(); },
+    value: recipe?.name ?? '', oninput: () => { dirty = true; render(); },
   });
   const editor = createLinesEditor({
     repo, lines: linesWithFoods(recipe?.ingredients ?? [], repo.state.foods), what: 'ingredient',
-    placeholder: '500 g beef mince, 1 onion, 400 g chopped tomatoes', onChange: () => { dirty = true; render(); },
+    onChange: () => { dirty = true; render(); },
   });
   const together = h('div', { class: 'section', 'aria-live': 'polite' });
   const save = h('button', { type: 'button', class: 'button primary', onclick: () => submit() });
@@ -291,7 +291,7 @@ export function openRecipeEditor({ repo, recipe = null }) {
       field('Name', name),
       h('section', { class: 'section', 'aria-label': 'Ingredients' },
         h('h3', { class: 'subhead' }, 'Ingredients'),
-        h('p', { class: 'reason' }, 'Weigh each as it goes in, raw or as sold. Each time you make it, you can change them.'),
+        h('p', { class: 'reason' }, 'Weigh each as it goes in, raw or as sold.'),
         editor.el),
       together,
       h('div', { class: 'sheet-actions' },
