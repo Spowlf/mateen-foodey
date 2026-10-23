@@ -31,8 +31,11 @@ function batchSub(batch, entries) {
   return keepUnits(`${leftText(batch, entries)} of ${formatGrams(batch.finishedGrams)}${left}`);
 }
 
-/** Serves from a batch: grams on the number pad, or portions as chips when it's split. */
-export function openBatchLog({ repo, batch, recipe }) {
+/**
+ * Serves from a batch: grams on the number pad, or portions as chips when it's split. Logs to meal
+ * (Log's chosen meal), or the meal for the time; onLogged runs after it's saved.
+ */
+export function openBatchLog({ repo, batch, recipe, meal = null, onLogged = null }) {
   const S = repo.state;
   const from = portionsLogged(batch, S.entries) + 1;
   const left = portionsLeft(batch, S.entries);
@@ -60,12 +63,13 @@ export function openBatchLog({ repo, batch, recipe }) {
     },
     onDone: async ({ grams, choice }) => {
       const entry = batchEntry({
-        id: crypto.randomUUID(), batch, name: recipe.name, date: today(), meal: mealNow(repo), createdAt: Date.now(),
+        id: crypto.randomUUID(), batch, name: recipe.name, date: today(), meal: meal ?? mealNow(repo), createdAt: Date.now(),
         ...(choice ? { portionNumber: from, portionCount: choice.count } : { grams }),
       });
       const saved = await runAction(() => repo.saveRow('entries', entry.id, entry));
       if (!saved) return false;
       loggedToast(repo, [entry]);
+      onLogged?.();
       return true;
     },
   });

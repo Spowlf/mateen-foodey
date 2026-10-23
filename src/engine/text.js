@@ -29,7 +29,7 @@ export function nameCase(text) {
   const raise = (p) => p.replace(/^([^\p{L}\p{N}]*)(\p{Ll})/u, (_, lead, c) => lead + c.toUpperCase());
   return words.map((w, i) => {
     const lower = w.toLowerCase();
-    if (UNITS.has(lower)) return lower;
+    if (UNITS.has(lower.replace(/[^\p{L}]/gu, ''))) return lower;
     if (SMALL_WORDS.has(lower)) return i > 0 && i < words.length - 1 ? lower : raise(lower);
     return w.split('-').map((part) => {
       const letters = part.replace(/[^\p{L}]/gu, '');

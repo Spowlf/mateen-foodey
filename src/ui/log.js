@@ -7,6 +7,7 @@
 import { h, fill, chips, toast, icon, openSheet } from './dom.js';
 import { runAction, keepUnits, mealNow as slotNow, loggedToast } from './format.js';
 import { logSavedMeal, savedMealSub } from './saved-meal-sheet.js';
+import { openBatchLog, recipeSub } from './recipe-sheets.js';
 import { renderHeadline } from './headline.js';
 import { renderReviewCard } from './review.js';
 import { createFoodSearch } from './food-search.js';
@@ -18,7 +19,7 @@ import { openScanner } from './scan.js';
 import { submitDraft } from '../db/drafts.js';
 import { OfflineError } from '../errors.js';
 import {
-  today, MEALS, mealName, emptyLogForm, isBlank, toCheckEntries, amountsFor, isLive,
+  today, MEALS, mealName, emptyLogForm, isBlank, toCheckEntries, amountsFor, isLive, rankFoods, batchesOf,
   formatGrams, formatDayShort, titleCase, kcalOf, formatKcal, nameCase,
 } from '../engine/index.js';
 
@@ -164,9 +165,24 @@ export function renderLog(root, { repo }) {
     if (!code || !BARCODE.test(code)) return [];
     return [h('div', {}, h('button', { type: 'button', class: 'text-button', onclick: () => lookUpBarcode(code) }, titleCase(`look up barcode ${code}`)))];
   };
+  // Recipes you've made, first in the results: a tap serves from the latest batch.
+  const recipeRows = (query) => {
+    const S = repo.state;
+    const made = rankFoods(query, S.recipes.filter(isLive))
+      .map((recipe) => ({ recipe, batch: batchesOf(S.batches, recipe.id)[0] }))
+      .filter((r) => r.batch)
+      .slice(0, 3);
+    if (!made.length) return [];
+    const done = () => { form = freshForm(); keep(); renderAdd(); results.clear(); };
+    return [h('ul', { class: 'list', 'aria-label': 'Your recipes' }, made.map(({ recipe, batch }) => h('li', {},
+      h('button', { type: 'button', class: 'list-row', onclick: () => openBatchLog({ repo, batch, recipe, meal: meal(), onLogged: done }) },
+        h('span', { class: 'list-main' },
+          h('span', { class: 'list-title' }, nameCase(recipe.name)),
+          h('span', { class: 'list-sub' }, recipeSub(recipe, S)))))))];
+  };
   const results = createFoodSearch({
     repo,
-    extra: barcodeRow,
+    extra: (query) => [...barcodeRow(), ...recipeRows(query)],
     onPick: (food) => openGramsSheet({
       food, grams: food.usualGrams ?? null, verb: 'Log',
       onDone: async ({ grams, portionBasis }) => {

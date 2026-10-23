@@ -18,6 +18,7 @@ test('names show in title case whatever case their source used', () => {
   assert.equal(nameCase("McVitie's digestives"), "McVitie's Digestives");
   assert.equal(nameCase('coca-cola zero'), 'Coca-Cola Zero');
   assert.equal(nameCase('Coke 330 ML'), 'Coke 330 ml');
+  assert.equal(nameCase('Poached chicken breast, 600 g, cooked'), 'Poached Chicken Breast, 600 g, Cooked');
   assert.equal(nameCase('Bread, white, sliced'), 'Bread, White, Sliced');
   assert.equal(nameCase('Run, 12 min a mile'), 'Run, 12 Min a Mile');
   assert.equal(nameCase('crème fraîche'), 'Crème Fraîche');

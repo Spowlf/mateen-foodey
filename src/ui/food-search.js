@@ -42,7 +42,7 @@ export function createFoodSearch({ repo, onPick, extra = () => [] }) {
       sources.length > 0 && h('ul', { class: 'list', 'aria-label': 'Food databases' }, sources.map(row)),
       waiting && h('p', { class: 'reason' }, 'Searching the food databases.'),
       remote.query === q && remote.note && h('p', { class: 'reason' }, remote.note),
-      q.length >= MIN_QUERY && !waiting && !own.length && !sources.length && !remote.note && h('p', { class: 'empty-line' }, 'No foods found. Try fewer words.'));
+      q.length >= MIN_QUERY && !waiting && !first.length && !own.length && !sources.length && !remote.note && h('p', { class: 'empty-line' }, 'No foods found. Try fewer words.'));
   }
 
   async function ask(q, query, state) {

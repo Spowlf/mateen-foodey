@@ -400,6 +400,10 @@ main {
   background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
   background-size: 6px 6px; background-repeat: no-repeat;
 }
+/* iOS gives date and time fields a width of their own, wider than a narrow box, and centres the
+   value: keep them to the box and read them from the left like every other field. */
+.input[type="date"], .input[type="time"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; text-align: left; line-height: var(--touch); }
+.input::-webkit-date-and-time-value { text-align: left; margin: 0; }
 /* The API token, hidden like a password without being a password field (see settings.js). */
 .input.masked { -webkit-text-security: disc; text-security: disc; }
 .add-box .text-button { margin: 0; min-height: var(--touch); }
@@ -471,8 +475,10 @@ main {
   width: 100%; max-width: 560px; max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top) - var(--s2))); margin: auto auto 0;
   padding: 0 var(--s4) calc(env(safe-area-inset-bottom) + var(--s4));
   border: 0; border-radius: var(--r-panel) var(--r-panel) 0 0;
-  background: var(--paper); color: var(--ink); box-shadow: var(--shadow-float); overflow-y: auto;
+  background: var(--paper); color: var(--ink); box-shadow: var(--shadow-float); overflow-y: auto; overflow-x: hidden;
 }
+/* Grid items can't grow past the sheet's width, so nothing inside pushes it sideways. */
+.sheet-form > *, .field > * { min-width: 0; }
 .sheet[open] { animation: rise 0.25s var(--ease-out); }
 .sheet::backdrop { background: var(--backdrop); }
 .sheet-head {
