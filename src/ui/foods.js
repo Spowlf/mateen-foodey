@@ -6,7 +6,7 @@ import { foodSub } from './format.js';
 import { openFoodSheet } from './food-sheet.js';
 import { openSavedMealSheet, savedMealSub } from './saved-meal-sheet.js';
 import { openRecipeSheet, openRecipeEditor, recipeSub } from './recipe-sheets.js';
-import { myFoods, isLive } from '../engine/index.js';
+import { myFoods, isLive, nameCase } from '../engine/index.js';
 
 const SHOWN = 50;
 const byName = (a, b) => a.name.localeCompare(b.name, 'en-GB');
@@ -42,7 +42,7 @@ export function renderFoods(root, { repo }) {
     if (!S.foods.some(isLive)) return h('p', { class: 'empty-line' }, 'Foods you log or add appear here, most used first.');
     if (!foods.length) return h('p', { class: 'empty-line' }, 'None of your foods match. Try fewer words.');
     return [
-      h('ul', { class: 'list', 'aria-label': 'Your foods' }, foods.slice(0, SHOWN).map((f) => row(f.name, foodSub(f), () => openFoodSheet({ repo, food: f })))),
+      h('ul', { class: 'list', 'aria-label': 'Your foods' }, foods.slice(0, SHOWN).map((f) => row(nameCase(f.name), foodSub(f), () => openFoodSheet({ repo, food: f })))),
       foods.length > SHOWN && h('p', { class: 'reason' }, `${foods.length - SHOWN} more. Search to find them.`),
     ];
   }
@@ -52,12 +52,12 @@ export function renderFoods(root, { repo }) {
     if (view === 'meals') {
       const meals = S.savedMeals.filter(isLive).sort(byName);
       return fill(list, meals.length
-        ? h('ul', { class: 'list', 'aria-label': 'Saved meals' }, meals.map((m) => row(m.name, savedMealSub(m, S), () => openSavedMealSheet({ repo, savedMeal: m }))))
+        ? h('ul', { class: 'list', 'aria-label': 'Saved meals' }, meals.map((m) => row(nameCase(m.name), savedMealSub(m, S), () => openSavedMealSheet({ repo, savedMeal: m }))))
         : h('p', { class: 'empty-line' }, 'Save a meal you eat often, and log it from Log in one tap.'));
     }
     const recipes = S.recipes.filter(isLive).sort(byName);
     return fill(list, recipes.length
-      ? h('ul', { class: 'list', 'aria-label': 'Recipes' }, recipes.map((r) => row(r.name, recipeSub(r, S), () => openRecipeSheet({ repo, recipe: r }))))
+      ? h('ul', { class: 'list', 'aria-label': 'Recipes' }, recipes.map((r) => row(nameCase(r.name), recipeSub(r, S), () => openRecipeSheet({ repo, recipe: r }))))
       : h('p', { class: 'empty-line' }, 'Add a dish you cook in batches. Weigh it once, then log it by grams or portions.'));
   }
 

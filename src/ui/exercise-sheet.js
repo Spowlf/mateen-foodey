@@ -4,7 +4,7 @@
 
 import { h, fill, chips, field, openSheet, toast } from './dom.js';
 import { runAction, offlineLabel, keepUnits, deleteWithUndo } from './format.js';
-import { manualWorkout, metText, latestWeight, typedWhole, today, formatDay, formatKcal } from '../engine/index.js';
+import { manualWorkout, metText, latestWeight, typedWhole, today, formatDay, formatKcal, nameCase } from '../engine/index.js';
 
 let catalogue = null;
 
@@ -32,7 +32,7 @@ export async function openExerciseSheet({ repo, date = today() }) {
   let busy = false;
   const weightGrams = latestWeight(repo.state.weights, date);
 
-  const groupChips = chips({ label: 'Kind', options: data.groups.map((g) => ({ value: g.id, label: g.name })), value: group, onChange: (v) => { group = v; activity = null; renderActivities(); render(); } });
+  const groupChips = chips({ label: 'Kind', options: data.groups.map((g) => ({ value: g.id, label: nameCase(g.name) })), value: group, onChange: (v) => { group = v; activity = null; renderActivities(); render(); } });
   const activityBox = h('div', {});
   const minutes = h('input', { class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', enterkeyhint: 'done', placeholder: '30', oninput: () => { minuteChips.set(null); render(); } });
   const minuteChips = chips({ label: 'Minutes', options: MINUTES.map((m) => ({ value: m, label: `${m} min` })), value: null, onChange: (v) => { minutes.value = String(v); render(); } });
@@ -42,7 +42,7 @@ export async function openExerciseSheet({ repo, date = today() }) {
   function renderActivities() {
     fill(activityBox, chips({
       label: 'Activity',
-      options: data.activities.filter((a) => a.group === group).map((a) => ({ value: a.id, label: a.name })),
+      options: data.activities.filter((a) => a.group === group).map((a) => ({ value: a.id, label: nameCase(a.name) })),
       value: activity?.id ?? null,
       onChange: (id) => { activity = data.activities.find((a) => a.id === id); render(); },
     }));
@@ -69,7 +69,7 @@ export async function openExerciseSheet({ repo, date = today() }) {
     busy = false;
     if (!ok) return render();
     s.close();
-    toast(keepUnits(`Added ${r.row.type}, ${r.row.minutes} min, ~${formatKcal(r.row.kcal)}.`), {
+    toast(keepUnits(`Added ${nameCase(r.row.type)}, ${r.row.minutes} min, ~${formatKcal(r.row.kcal)}.`), {
       label: 'Undo',
       run: () => runAction(async () => { await repo.deleteRow('workouts', r.row.id); toast('Removed.'); }),
     });
@@ -90,7 +90,7 @@ export async function openExerciseSheet({ repo, date = today() }) {
 
 /** A workout you added: how it was counted, and Delete. Health's workouts are Health's to change. */
 export function openWorkoutSheet({ repo, workout }) {
-  const s = openSheet({ title: workout.type },
+  const s = openSheet({ title: nameCase(workout.type) },
     h('div', { class: 'sheet-form' },
       h('p', {}, keepUnits(`${workout.minutes} min, ${workout.source === 'manual' ? '~' : ''}${formatKcal(workout.kcal)}${workout.source === 'health' ? ', from Health' : ''}.`)),
       h('p', { class: 'reason' }, workout.source === 'manual'
@@ -99,7 +99,7 @@ export function openWorkoutSheet({ repo, workout }) {
       workout.source === 'manual' && h('div', { class: 'sheet-actions' },
         h('div', {}, h('button', {
           type: 'button', class: 'text-button danger',
-          onclick: async () => { if (await deleteWithUndo(repo, 'workouts', { id: workout.id, name: workout.type })) s.close(); },
+          onclick: async () => { if (await deleteWithUndo(repo, 'workouts', { id: workout.id, name: nameCase(workout.type) })) s.close(); },
         }, 'Delete Workout')))));
   return s;
 }

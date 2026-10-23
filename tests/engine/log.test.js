@@ -168,5 +168,5 @@ test('log lines: a saved meal’s recipe line is served from its batch, and need
   assert.equal(foods.length, 0);
   assert.deepEqual([entries[0].batchId, entries[0].foodId, entries[0].name, entries[0].grams, entries[0].savedMealId], ['b1', null, 'Overnight oats', 120, 'm1']);
   assert.equal(entries[0].nutrition.kcalMilli, Math.round(batch.totals.kcalMilli / 4));
-  assert.throws(() => logLines({ lines: [{ recipe, batch: null, grams: 120 }], foods: [], date: '2026-10-23', meal: 'lunch', newId: () => 'x', now: 1 }), /Make Overnight oats first/);
+  assert.throws(() => logLines({ lines: [{ recipe, batch: null, grams: 120 }], foods: [], date: '2026-10-23', meal: 'lunch', newId: () => 'x', now: 1 }), /Make Overnight Oats first/);
 });

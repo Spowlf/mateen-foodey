@@ -6,7 +6,7 @@ import { foodEntry, quickEntry, typedAmounts, isLive, dayTotal } from './entries
 import { hasLeft, batchEntry } from './recipes.js';
 import { MAX_GRAMS } from './parse.js';
 import { adoptFoods } from './foods.js';
-import { titleCase } from './text.js';
+import { titleCase, nameCase } from './text.js';
 
 export const QUICK_LOG_DAYS = 90;
 
@@ -93,7 +93,7 @@ export function checkButton(lines, verb = 'log') {
   if (!lines.length) return { ready: false, label: 'Add a Food' };
   const needFood = lines.filter((l) => verb !== 'log' || !kcalLine(l));
   const unmatched = needFood.find((l) => !l.food);
-  if (unmatched) return { ready: false, label: titleCase(`pick a food for ${unmatched.name}`) };
+  if (unmatched) return { ready: false, label: `Pick a Food for ${nameCase(unmatched.name)}` };
   if (needFood.some((l) => !(Number.isInteger(l.grams) && l.grams > 0 && l.grams <= MAX_GRAMS))) return { ready: false, label: 'Enter the Grams' };
   return { ready: true, label: titleCase(`${verb} ${lines.length} ${lines.length === 1 ? 'item' : 'items'}`) };
 }
@@ -115,7 +115,7 @@ export function logLines({ lines, foods, date, meal, origin = 'manual', newId, n
       });
     }
     // A saved meal's recipe line: grams served from the recipe's latest batch.
-    if (!line.batch) throw new RangeError(`Make ${line.recipe.name} first, then log it.`);
+    if (!line.batch) throw new RangeError(`Make ${nameCase(line.recipe.name)} first, then log it.`);
     return { ...batchEntry({ id: newId(), batch: line.batch, name: line.recipe.name, grams: line.grams, date, meal, createdAt: now, origin }), savedMealId };
   });
   return { foods: adopted.foods, entries };

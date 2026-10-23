@@ -9,7 +9,7 @@ import { foodSub, keepUnits, runAction } from './format.js';
 import { openGramsSheet } from './grams-sheet.js';
 import { createFoodSearch } from './food-search.js';
 import {
-  checkButton, lineAmounts, lineEstimated, kcalLine, figuresText, uncertainty, withGrams, sumAmounts, unknownLines, formatGrams,
+  checkButton, lineAmounts, lineEstimated, kcalLine, figuresText, uncertainty, withGrams, sumAmounts, unknownLines, formatGrams, nameCase,
 } from '../engine/index.js';
 
 /**
@@ -39,9 +39,9 @@ function openSwap({ repo, line, onPick }) {
     onPick: pick,
     extra: () => (alternatives.length ? [h('ul', { class: 'list', 'aria-label': 'Other matches' }, alternatives.map((food) => h('li', {},
       h('button', { type: 'button', class: 'list-row', onclick: () => pick(food) },
-        h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, food.name), h('span', { class: 'list-sub' }, foodSub(food)))))))] : []),
+        h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, nameCase(food.name)), h('span', { class: 'list-sub' }, foodSub(food)))))))] : []),
   });
-  const s = openSheet({ title: `Food for “${line.name}”` }, h('div', { class: 'sheet-form' }, input, h('div', {}, estimateButton), results.el));
+  const s = openSheet({ title: `Food for “${nameCase(line.name)}”` }, h('div', { class: 'sheet-form' }, input, h('div', {}, estimateButton), results.el));
   results.search(input.value, { state: line.state });
   return s;
 }
@@ -65,10 +65,10 @@ export function openCheckSheet({ repo, lines: start, onChange, onLog, verb = 'lo
   const remove = (i) => h('button', { type: 'button', class: 'text-button', onclick: () => update(lines.filter((_, k) => k !== i)) }, 'Remove');
 
   // The kcal the sentence gave ("780 kcal"): logged as that, like a quick add, with no food or grams.
-  const kcalCard = (line, i) => h('article', { class: 'line', 'aria-label': line.name },
+  const kcalCard = (line, i) => h('article', { class: 'line', 'aria-label': nameCase(line.name) },
     h('div', { class: 'line-head' },
       h('div', { class: 'list-main' },
-        h('h3', { class: 'list-title' }, line.name),
+        h('h3', { class: 'list-title' }, nameCase(line.name)),
         h('span', { class: 'list-sub' }, 'The kcal you gave'))),
     h('div', { class: 'line-foot' },
       h('span', { class: 'reason' }, keepUnits(figuresText(lineAmounts(line)))),
@@ -79,14 +79,14 @@ export function openCheckSheet({ repo, lines: start, onChange, onLog, verb = 'lo
     const amounts = lineAmounts(line);
     const estimated = lineEstimated(line);
     const tags = uncertainty(line);
-    return h('article', { class: 'line', 'aria-label': line.name },
+    return h('article', { class: 'line', 'aria-label': nameCase(line.name) },
       h('div', { class: 'line-head' },
         h('div', { class: 'list-main' },
-          h('h3', { class: 'list-title' }, line.name),
+          h('h3', { class: 'list-title' }, nameCase(line.name)),
           h('button', {
-            type: 'button', class: 'line-match', 'aria-label': line.food ? `${line.food.name}. Change the food` : `Pick a food for ${line.name}`,
+            type: 'button', class: 'line-match', 'aria-label': line.food ? `${nameCase(line.food.name)}. Change the food` : `Pick a food for ${nameCase(line.name)}`,
             onclick: () => openSwap({ repo, line, onPick: (food) => setLine(i, { ...line, food }) }),
-          }, h('span', {}, line.food ? line.food.name : 'Pick a Food'), icon('forward')),
+          }, h('span', {}, line.food ? nameCase(line.food.name) : 'Pick a Food'), icon('forward')),
           line.food && h('span', { class: 'list-sub' }, foodSub(line.food))),
         h('button', {
           type: 'button', class: `line-grams${line.grams ? '' : ' missing'}`, 'aria-label': line.grams ? `${line.grams} grams. Change` : 'Enter the grams',

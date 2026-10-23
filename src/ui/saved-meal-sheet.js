@@ -4,14 +4,14 @@ import { h, fill, field, openSheet, toast } from './dom.js';
 import { runAction, mealNow, loggedToast, deleteWithUndo, offlineLabel, keepUnits } from './format.js';
 import { createLinesEditor } from './lines-editor.js';
 import {
-  linesWithFoods, linesTotal, storedLines, figuresText, unknownLines, today, mealName, titleCase,
+  linesWithFoods, linesTotal, storedLines, figuresText, unknownLines, today, mealName, titleCase, nameCase,
 } from '../engine/index.js';
 
 /** Logs a saved meal's foods to meal, with Undo. Resolves true when logged. */
 export async function logSavedMeal(repo, savedMeal, meal = mealNow(repo)) {
   const lines = withRecipes(savedMeal.items, repo.state);
   const unmade = lines.find((l) => l.recipe && !l.batch);
-  if (unmade) { toast(`Nothing changed: make ${unmade.recipe.name} first, then log this meal.`); return false; }
+  if (unmade) { toast(`Nothing changed: make ${nameCase(unmade.recipe.name)} first, then log this meal.`); return false; }
   const entries = await runAction(() => repo.logLines({ lines, date: today(), meal, origin: 'manual', savedMealId: savedMeal.id }));
   if (!entries) return false;
   loggedToast(repo, entries);
@@ -86,7 +86,7 @@ export function openSavedMealSheet({ repo, savedMeal = null }) {
     busy = false;
     if (!row) return render();
     s.close();
-    toast(`${isNew ? 'Added' : 'Saved'} ${row.name}.`);
+    toast(`${isNew ? 'Added' : 'Saved'} ${nameCase(row.name)}.`);
   }
 
   async function logNow() {
@@ -100,7 +100,7 @@ export function openSavedMealSheet({ repo, savedMeal = null }) {
     else render();
   }
 
-  const s = openSheet({ title: isNew ? 'Add a Saved Meal' : savedMeal.name },
+  const s = openSheet({ title: isNew ? 'Add a Saved Meal' : nameCase(savedMeal.name) },
     h('div', { class: 'sheet-form' },
       field('Name', name),
       h('section', { class: 'section', 'aria-label': 'Foods' }, h('h3', { class: 'subhead' }, 'Foods'), editor.el),
@@ -109,7 +109,7 @@ export function openSavedMealSheet({ repo, savedMeal = null }) {
         save,
         h('div', { class: 'link-row' },
           logButton,
-          !isNew && h('button', { type: 'button', class: 'text-button danger', onclick: async () => { if (await deleteWithUndo(repo, 'savedMeals', savedMeal)) s.close(); } }, 'Delete Meal')))));
+          !isNew && h('button', { type: 'button', class: 'text-button danger', onclick: async () => { if (await deleteWithUndo(repo, 'savedMeals', { id: savedMeal.id, name: nameCase(savedMeal.name) })) s.close(); } }, 'Delete Meal')))));
   render();
   return s;
 }

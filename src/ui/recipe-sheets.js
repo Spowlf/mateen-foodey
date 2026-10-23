@@ -9,7 +9,7 @@ import { openGramsSheet } from './grams-sheet.js';
 import {
   linesWithFoods, linesTotal, storedLines, figuresText, unknownLines, today, formatDay, formatGrams, formatKcal, kcalOf, titleCase,
   batchesOf, nextIngredients, makeBatch, leftText, servedAmounts, portions, portionsLogged, portionsLeft, batchEntry,
-  sumGrams, servingSplits, gramsOf,
+  sumGrams, servingSplits, gramsOf, nameCase,
 } from '../engine/index.js';
 
 const MAX_CHOICES = 4;
@@ -47,7 +47,7 @@ export function openBatchLog({ repo, batch, recipe }) {
     portionBasis: choices.length ? 'serving' : null,
     verb: 'Log',
     measure: {
-      title: recipe.name,
+      title: nameCase(recipe.name),
       amounts: (g) => servedAmounts(batch, g),
       estimated: !!batch.totals.estimated,
       assumptions,
@@ -161,10 +161,10 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
     busy = false;
     if (!result) return render();
     s.close();
-    toast(keepUnits(`Saved ${recipe.name}: ${formatGrams(made.finishedGrams)}, ready to log from Recipes.`));
+    toast(keepUnits(`Saved ${nameCase(recipe.name)}: ${formatGrams(made.finishedGrams)}, ready to log from Recipes.`));
   }
 
-  const s = openSheet({ title: isNew ? `Make ${recipe.name}` : recipe.name },
+  const s = openSheet({ title: isNew ? `Make ${nameCase(recipe.name)}` : nameCase(recipe.name) },
     h('div', { class: 'sheet-form' },
       field('Date Made', date),
       h('section', { class: 'section', 'aria-label': 'Ingredients' }, h('h3', { class: 'subhead' }, 'Ingredients'), editor.el),
@@ -176,7 +176,7 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
         save,
         !isNew && h('div', {}, h('button', {
           type: 'button', class: 'text-button danger',
-          onclick: async () => { if (await deleteWithUndo(repo, 'batches', { id: batch.id, name: `${recipe.name}, made ${madeOn(batch.date)}` })) s.close(); },
+          onclick: async () => { if (await deleteWithUndo(repo, 'batches', { id: batch.id, name: `${nameCase(recipe.name)}, made ${madeOn(batch.date)}` })) s.close(); },
         }, 'Delete Batch')))));
   renderFinished();
   render();
@@ -227,11 +227,11 @@ export function openRecipeEditor({ repo, recipe = null }) {
     if (!result) return render();
     const saved = result.changes.recipes?.[0];
     s.close();
-    toast(`${isNew ? 'Added' : 'Saved'} ${saved.name}.`);
+    toast(`${isNew ? 'Added' : 'Saved'} ${nameCase(saved.name)}.`);
     if (isNew) openRecipeSheet({ repo, recipe: saved });
   }
 
-  const s = openSheet({ title: isNew ? 'Add a Recipe' : `Edit ${recipe.name}` },
+  const s = openSheet({ title: isNew ? 'Add a Recipe' : `Edit ${nameCase(recipe.name)}` },
     h('div', { class: 'sheet-form' },
       field('Name', name),
       h('section', { class: 'section', 'aria-label': 'Ingredients' },
@@ -261,7 +261,7 @@ function servingsSection({ totals, grams, estimated, made }) {
       ? `${formatGrams(grams)} finished, from the batch made ${madeOn(made)}.`
       : `${formatGrams(grams)} of ingredients. Make it and weigh the finished dish for exact servings.`)),
     h('table', { class: 'data-table' },
-      h('thead', {}, h('tr', {}, ['Servings', 'Each', 'Kcal', 'Protein', 'Carbs', 'Fat'].map((c) => h('th', { scope: 'col' }, c)))),
+      h('thead', {}, h('tr', {}, ['Servings', 'Each', 'kcal', 'Protein', 'Carbs', 'Fat'].map((c) => h('th', { scope: 'col' }, c)))),
       h('tbody', {}, servingSplits(totals, grams).map(({ count, grams: each, nutrition: a }) => h('tr', {},
         h('th', { scope: 'row' }, String(count)),
         h('td', { class: 'num' }, formatGrams(each)),
@@ -284,7 +284,7 @@ export function openRecipeSheet({ repo, recipe }) {
   const base = last
     ? { totals: last.totals, grams: last.finishedGrams, estimated: !!last.totals.estimated, made: last.date }
     : total && { totals: total.amounts, grams: sumGrams(lines), estimated: total.estimated, made: null };
-  const s = openSheet({ title: recipe.name },
+  const s = openSheet({ title: nameCase(recipe.name) },
     h('div', { class: 'sheet-form' },
       h('p', { class: 'reason' }, `${n} ${n === 1 ? 'ingredient' : 'ingredients'}.`),
       base && servingsSection(base),

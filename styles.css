@@ -206,7 +206,8 @@ main {
 .add-box { display: grid; grid-template-columns: 1fr auto auto; gap: var(--s2); align-items: start; }
 /* The live camera while scanning a barcode. */
 .scan-video { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r-control); background: var(--ink); }
-.add-box textarea { min-height: var(--touch); padding: var(--s3); resize: none; line-height: 1.4; field-sizing: content; max-height: 40dvh; }
+.add-box textarea { min-height: var(--touch); padding: var(--s3); resize: none; line-height: 1.4; field-sizing: content; max-height: 40dvh; overflow-y: auto; scrollbar-width: none; }
+.add-box textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .add-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); }
 .add-actions .button.primary { width: auto; flex: 1 1 auto; padding: 0 var(--s4); }
 .not-synced { display: flex; align-items: baseline; gap: var(--s2); font-size: var(--t-s); color: var(--ink-2); }

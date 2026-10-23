@@ -5,7 +5,7 @@
 import { h, fill, chips, openSheet } from './dom.js';
 import { keepUnits } from './format.js';
 import {
-  pressGramsKey, typedGrams, mlToGrams, amountsFor, figuresText, unknownLines, sumAmounts, formatGrams, titleCase, MAX_GRAMS,
+  pressGramsKey, typedGrams, mlToGrams, amountsFor, figuresText, unknownLines, sumAmounts, formatGrams, titleCase, MAX_GRAMS, nameCase,
 } from '../engine/index.js';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
@@ -116,7 +116,7 @@ export function openGramsSheet({ food = null, grams = null, portionBasis = null,
     else if (e.key === 'Enter' && !e.target.closest?.('button')) { e.preventDefault(); done(); }
   }
 
-  const s = openSheet({ title: measure?.title ?? food.name, onClose: () => document.removeEventListener('keydown', onKey) },
+  const s = openSheet({ title: measure?.title ?? nameCase(food.name), onClose: () => document.removeEventListener('keydown', onKey) },
     h('div', { class: 'sheet-form' },
       servingChips,
       display,

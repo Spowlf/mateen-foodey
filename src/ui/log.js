@@ -19,7 +19,7 @@ import { submitDraft } from '../db/drafts.js';
 import { OfflineError } from '../errors.js';
 import {
   today, MEALS, mealName, emptyLogForm, isBlank, toCheckEntries, amountsFor, isLive,
-  formatGrams, formatDayShort, titleCase, kcalOf, formatKcal,
+  formatGrams, formatDayShort, titleCase, kcalOf, formatKcal, nameCase,
 } from '../engine/index.js';
 
 const TO_CHECK_SHOWN = 3;
@@ -61,7 +61,7 @@ export function renderLog(root, { repo }) {
     ].filter(Boolean).join(', ');
     const confirm = (changes = {}) => runAction(async () => {
       await repo.saveRow('entries', entry.id, { status: 'logged', ...changes });
-      toast(`Confirmed ${entry.name}.`);
+      toast(`Confirmed ${nameCase(entry.name)}.`);
     });
     return h('li', { class: 'check-row' },
       h('button', {
@@ -76,9 +76,9 @@ export function renderLog(root, { repo }) {
         }),
       },
       h('span', { class: 'list-main' },
-        h('span', { class: 'list-title' }, entry.name),
+        h('span', { class: 'list-title' }, nameCase(entry.name)),
         h('span', { class: 'list-sub' }, keepUnits(sub)))),
-      h('button', { type: 'button', class: 'text-button', 'aria-label': `Confirm ${entry.name}`, onclick: () => confirm() }, 'Confirm'));
+      h('button', { type: 'button', class: 'text-button', 'aria-label': `Confirm ${nameCase(entry.name)}`, onclick: () => confirm() }, 'Confirm'));
   }
 
   function renderToCheck() {
@@ -124,7 +124,7 @@ export function renderLog(root, { repo }) {
               else e.currentTarget.disabled = false;
             },
           },
-          h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, m.name), h('span', { class: 'list-sub' }, savedMealSub(m, S)))))))));
+          h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, nameCase(m.name)), h('span', { class: 'list-sub' }, savedMealSub(m, S)))))))));
   }
 
   function renderQuick() {
@@ -144,7 +144,7 @@ export function renderLog(root, { repo }) {
   });
   const box = h('textarea', {
     class: 'input', rows: 1, autocomplete: 'off', autocapitalize: 'sentences', enterkeyhint: 'go',
-    'aria-label': 'What you ate', placeholder: 'Two eggs, toast with butter, flat white',
+    'aria-label': 'What you ate', placeholder: 'Two eggs, toast, flat white',
     oninput: () => {
       // Changing the words means the items read from them no longer fit.
       form = { ...form, text: box.value, lines: [], origin: 'sentence' };
@@ -180,10 +180,20 @@ export function renderLog(root, { repo }) {
   fill(el.add, mealChips, h('div', { class: 'add-box' }, box, scanButton, photoButton), photoInput, notSynced,
     h('div', { class: 'add-actions' }, checkButton, quickAdd), results.el);
 
+  // The box grows with its words, so a long sentence never scrolls inside it. CSS does this where
+  // field-sizing works; Safari needs the height set.
+  const sizesItself = CSS.supports('field-sizing', 'content');
+  function fitBox() {
+    if (sizesItself || !box.isConnected) return;
+    box.style.height = 'auto';
+    box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+  }
+
   function renderAdd() {
     if (!form) return;
     mealChips.set(meal());
     if (box.value !== form.text) box.value = form.text;
+    fitBox();
     const blank = isBlank(form);
     const connected = repo.connected();
     notSynced.hidden = !(offline && !blank);

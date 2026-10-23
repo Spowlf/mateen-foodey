@@ -2,7 +2,7 @@
 
 import { toast } from './dom.js';
 import { OfflineError } from '../errors.js';
-import { kcalOf, formatKcal, formatGrams, mealForTime, mealName, nowTime } from '../engine/index.js';
+import { kcalOf, formatKcal, formatGrams, mealForTime, mealName, nowTime, nameCase } from '../engine/index.js';
 
 /** Runs an action from a tap; a failure becomes a toast that says nothing changed. Returns its result or null. */
 export async function runAction(fn) {
@@ -38,12 +38,12 @@ export const keepUnits = (text) => String(text).replace(/(\d) (g|kcal|ml)\b/g, '
 export const mealNow = (repo) => mealForTime(nowTime(), repo.setting('mealTimes') ?? undefined);
 
 /**
- * "Logged 40 g Porridge oats to lunch." (a food's name keeps its own case), with Undo, which removes
+ * "Logged 40 g Porridge Oats to lunch." (names in title case), with Undo, which removes
  * the entries and then runs onUndo.
  */
 export function loggedToast(repo, entries, { onUndo = null } = {}) {
   const n = entries.length;
-  const what = n === 1 ? `${entries[0].grams ? `${formatGrams(entries[0].grams)} ` : ''}${entries[0].name}` : `${n} items`;
+  const what = n === 1 ? `${entries[0].grams ? `${formatGrams(entries[0].grams)} ` : ''}${nameCase(entries[0].name)}` : `${n} items`;
   toast(`Logged ${what} to ${entries[0] ? mealName(entries[0].meal).toLowerCase() : 'today'}.`, {
     label: 'Undo',
     run: () => runAction(async () => {

@@ -6,7 +6,7 @@ import { h, fill, toast } from './dom.js';
 import { runAction, keepUnits } from './format.js';
 import { openEntrySheet, copyToToday } from './entry-sheet.js';
 import {
-  today, historyDays, dayLine, stateLabel, targetOn, mealName, formatDay, formatGrams, kcalOf, isEstimated, titleCase, isLive,
+  today, historyDays, dayLine, stateLabel, targetOn, mealName, formatDay, formatGrams, kcalOf, isEstimated, titleCase, isLive, nameCase,
 } from '../engine/index.js';
 
 const DAYS_SHOWN = 14;
@@ -47,7 +47,7 @@ export function renderHistory(root, { repo }) {
     return h('li', {},
       h('button', { type: 'button', class: 'list-row', onclick: () => openEntrySheet({ repo, entry: e }) },
         h('span', { class: 'list-main' },
-          h('span', { class: 'list-title' }, e.name),
+          h('span', { class: 'list-title' }, nameCase(e.name)),
           (e.grams || tags.length > 0) && h('span', { class: 'list-sub' }, keepUnits([e.grams && formatGrams(e.grams), ...tags].filter(Boolean).join(', ')))),
         kcal != null && h('span', { class: 'list-amount' }, keepUnits(`${isEstimated(e) ? '~' : ''}${kcal.toLocaleString('en-GB')} kcal`))));
   }
@@ -81,7 +81,7 @@ export function renderHistory(root, { repo }) {
     if (!days.length) {
       return fill(list, query.trim()
         ? h('p', { class: 'empty-line' }, 'Nothing you ate matches. Try fewer words.')
-        : h('section', { class: 'empty' }, h('h2', {}, 'Nothing logged yet'), h('p', {}, 'Everything you log appears here, a day at a time, with the day’s total.')));
+        : h('section', { class: 'empty' }, h('h2', {}, 'Nothing Logged Yet'), h('p', {}, 'Everything you log appears here, a day at a time, with the day’s total.')));
     }
     fill(list,
       days.slice(0, shown).map(daySection),

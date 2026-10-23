@@ -54,7 +54,7 @@ export function renderSettings(root, { repo, onConnected }) {
     const protein = numberInput({ value: current?.proteinG ?? '', oninput: () => update() });
     const carbs = numberInput({ value: current?.carbsG ?? '', placeholder: 'Optional', oninput: () => update() });
     const fat = numberInput({ value: current?.fatG ?? '', placeholder: 'Optional', oninput: () => update() });
-    const kcalField = field('Daily Kcal', kcal);
+    const kcalField = field('Daily kcal', kcal);
     const how = h('p', { class: 'reason', 'aria-live': 'polite' });
     const problem = h('p', { class: 'warning', 'aria-live': 'polite' });
     const save = h('button', { type: 'button', class: 'button primary', onclick: () => submit() });
@@ -133,7 +133,7 @@ export function renderSettings(root, { repo, onConnected }) {
     return h('section', { class: 'section', 'aria-label': 'Weight Units' },
       h('h2', { class: 'subhead' }, 'Weight Units'),
       chips({
-        label: 'Weight units', options: [{ value: 'kg', label: 'kg' }, { value: 'stlb', label: 'st lb' }], value: setting('weightUnit'),
+        label: 'Weight Units', options: [{ value: 'kg', label: 'kg' }, { value: 'stlb', label: 'st lb' }], value: setting('weightUnit'),
         onChange: (v) => saveSetting('weightUnit', v, v === 'kg' ? 'Weights show in kg.' : 'Weights show in stones and pounds.'),
       }));
   }

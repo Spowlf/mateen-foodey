@@ -109,7 +109,7 @@ export function renderWeight(root, { repo }) {
     if (trend == null) {
       return fill(view,
         h('section', { class: 'empty' },
-          h('h2', {}, 'No weigh-ins yet'),
+          h('h2', {}, 'No Weigh-Ins Yet'),
           h('p', {}, 'Your trend smooths out the day-to-day swings. Add a weight, or let the Health Shortcut send it each morning.'),
           add),
         counted);

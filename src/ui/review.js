@@ -9,7 +9,7 @@ import { meterTable } from './charts.js';
 import {
   today, addDays, formatDay, dayName, reviewDue, reviewDays, markDaysLabel, dayRows, dayState, weekSummary, periodSummary, weeklyText,
   maintenanceEstimate, reviewTarget, weeksInARow, doneText, targetRowFor, targetOn, toCheckEntries, dayTotal, kcalOf, formatKcal,
-  formatGrams, datesFrom, DEFAULT_SETTINGS, titleCase,
+  formatGrams, datesFrom, DEFAULT_SETTINGS, titleCase, nameCase,
 } from '../engine/index.js';
 
 /** The card on Log, or nothing when no review is due. */
@@ -43,7 +43,7 @@ export function openReview({ repo, weekStart }) {
 
   async function confirm(entries) {
     const ok = await runAction(() => repo.saveBatch({ entries: entries.map((e) => ({ id: e.id, status: 'logged' })) }));
-    if (ok) toast(entries.length === 1 ? `Confirmed ${entries[0].name}.` : `Confirmed ${entries.length} items.`);
+    if (ok) toast(entries.length === 1 ? `Confirmed ${nameCase(entries[0].name)}.` : `Confirmed ${entries.length} items.`);
     render();
   }
 
@@ -65,9 +65,9 @@ export function openReview({ repo, weekStart }) {
         h('p', {}, toCheck.length === 1 ? '1 entry to check. Confirm it so the week’s figures are right.' : `${toCheck.length} entries to check. Confirm them so the week’s figures are right.`),
         h('ul', { class: 'list' }, toCheck.map((e) => h('li', { class: 'check-row' },
           h('div', { class: 'list-row static' }, h('span', { class: 'list-main' },
-            h('span', { class: 'list-title' }, e.name),
+            h('span', { class: 'list-title' }, nameCase(e.name)),
             h('span', { class: 'list-sub' }, keepUnits([e.grams && formatGrams(e.grams), `~${formatKcal(kcalOf(e.nutrition.kcalMilli) ?? 0)}`, formatDay(e.date)].filter(Boolean).join(', '))))),
-          h('button', { type: 'button', class: 'text-button', 'aria-label': `Confirm ${e.name}`, onclick: () => confirm([e]) }, 'Confirm')))),
+          h('button', { type: 'button', class: 'text-button', 'aria-label': `Confirm ${nameCase(e.name)}`, onclick: () => confirm([e]) }, 'Confirm')))),
         toCheck.length > 1 && h('div', {}, h('button', { type: 'button', class: 'text-button', onclick: () => confirm(toCheck) }, titleCase(`confirm all ${toCheck.length}`)))),
       toMark.length > 0 && h('section', { class: 'section', 'aria-label': 'Days to Mark' },
         h('p', {}, `${toMark.map(dayName).join(', ').replace(/, ([^,]*)$/, ' and $1')} ${toMark.length === 1 ? 'looks' : 'look'} complete.`),
@@ -94,7 +94,7 @@ export function openReview({ repo, weekStart }) {
       lines.map((l, i) => h('p', { class: i ? '' : 'headline-protein' }, keepUnits(l))),
       foods.length > 0 && h('section', { class: 'section', 'aria-label': 'Top Foods' },
         h('h3', { class: 'subhead' }, 'Top Foods'),
-        meterTable(foods.map((f) => ({ name: f.name, value: keepUnits(formatKcal(f.kcal)), share: f.share, note: f.times === 1 ? 'Once' : `${f.times} times` })), { caption: 'Top foods by kcal', head: ['Food', 'Kcal', 'Times'] })),
+        meterTable(foods.map((f) => ({ name: nameCase(f.name), value: keepUnits(formatKcal(f.kcal)), share: f.share, note: f.times === 1 ? 'Once' : `${f.times} times` })), { caption: 'Top foods by kcal', head: ['Food', 'kcal', 'Times'] })),
       next('See Your Target', () => goTo(3)),
     ];
   }

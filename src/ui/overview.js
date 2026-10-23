@@ -8,7 +8,7 @@ import { meterTable } from './charts.js';
 import { openExerciseSheet, openWorkoutSheet } from './exercise-sheet.js';
 import {
   today, periodBounds, stepPeriod, periodTitle, periodSummary, macroMeters, proteinDaysText, averageText, lastHealthSync,
-  targetOn, dayExercise, workoutsOn, dayTotal, entriesOn, isEstimated, kcalOf, formatKcal, mealName, syncedPhrase, titleCase,
+  targetOn, dayExercise, workoutsOn, dayTotal, entriesOn, isEstimated, kcalOf, formatKcal, mealName, syncedPhrase, titleCase, nameCase,
 } from '../engine/index.js';
 
 // The view and period are kept while you move between tabs.
@@ -92,7 +92,7 @@ export function renderOverview(root, { repo }) {
       list.length > 0 && h('ul', { class: 'list' }, list.map((w) => h('li', {},
         h('button', { type: 'button', class: 'list-row', onclick: () => openWorkoutSheet({ repo, workout: w }) },
           h('span', { class: 'list-main' },
-            h('span', { class: 'list-title' }, w.type),
+            h('span', { class: 'list-title' }, nameCase(w.type)),
             h('span', { class: 'list-sub' }, `${w.minutes} min, ${w.source === 'health' ? 'from Health' : 'estimated'}`)),
           h('span', { class: 'list-amount' }, keepUnits(`${w.source === 'manual' ? '~' : ''}${formatKcal(w.kcal)}`)))))),
       !list.length && h('p', { class: 'empty-line' }, 'No workouts today.'),
@@ -119,11 +119,11 @@ export function renderOverview(root, { repo }) {
         top.macroNote && h('p', { class: 'reason' }, top.macroNote)),
       s.totalKcal > 0 && h('section', { class: 'section', 'aria-label': 'Calories by Meal' },
         h('h2', { class: 'subhead' }, 'Calories by Meal'),
-        meterTable(s.byMeal.map((m) => ({ name: mealName(m.meal), value: keepUnits(formatKcal(m.kcal)), share: m.share })), { caption: 'Calories by meal', head: ['Meal', 'Kcal', 'Share'] }),
+        meterTable(s.byMeal.map((m) => ({ name: mealName(m.meal), value: keepUnits(formatKcal(m.kcal)), share: m.share })), { caption: 'Calories by meal', head: ['Meal', 'kcal', 'Share'] }),
         allDays && h('p', { class: 'reason' }, allDays)),
       s.topFoods.length > 0 && h('section', { class: 'section', 'aria-label': 'Top Foods' },
         h('h2', { class: 'subhead' }, 'Top Foods'),
-        meterTable(s.topFoods.map((f) => ({ name: f.name, value: keepUnits(formatKcal(f.kcal)), share: f.share, note: f.times === 1 ? 'Once' : `${f.times} times` })), { caption: 'Top foods by kcal', head: ['Food', 'Kcal', 'Times'] }),
+        meterTable(s.topFoods.map((f) => ({ name: nameCase(f.name), value: keepUnits(formatKcal(f.kcal)), share: f.share, note: f.times === 1 ? 'Once' : `${f.times} times` })), { caption: 'Top foods by kcal', head: ['Food', 'kcal', 'Times'] }),
         h('p', { class: 'reason' }, view === 'today' ? 'By kcal today.' : 'By kcal, all logged days.')),
       !s.totalKcal && view === 'today' && h('p', { class: 'empty-line' }, 'Meals, macros and top foods appear here once you log something today.'),
       view === 'today' && exerciseSection(now),

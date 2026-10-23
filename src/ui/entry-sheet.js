@@ -5,7 +5,7 @@
 import { h, fill, chips, field, openSheet, toast } from './dom.js';
 import { runAction, deleteWithUndo, offlineLabel, keepUnits } from './format.js';
 import {
-  MEALS, mealName, today, formatDay, formatGrams, figuresText, unknownLines, sumAmounts, rescaleEntry, isEstimated, typedWhole, MAX_GRAMS, titleCase,
+  MEALS, mealName, today, formatDay, formatGrams, figuresText, unknownLines, sumAmounts, rescaleEntry, isEstimated, typedWhole, MAX_GRAMS, titleCase, nameCase,
 } from '../engine/index.js';
 
 const NUTRITION = { database: null, estimate: '~ Estimated nutrition', quick: 'Quick add: typed kcal' };
@@ -15,7 +15,7 @@ export async function copyToToday(repo, list) {
   const copies = await runAction(() => repo.copyEntries(list, today()));
   if (!copies) return false;
   const n = copies.length;
-  toast(n === 1 ? `Copied ${copies[0].name} to today.` : `Copied ${n} items to today.`, {
+  toast(n === 1 ? `Copied ${nameCase(copies[0].name)} to today.` : `Copied ${n} items to today.`, {
     label: 'Undo',
     run: () => runAction(async () => { await repo.deleteEntries(copies.map((e) => e.id)); toast('Removed.'); }),
   });
@@ -76,14 +76,14 @@ export function openEntrySheet({ repo, entry }) {
     busy = false;
     if (!ok) return render();
     s.close();
-    toast(toCheck ? `Confirmed ${entry.name}.` : `Saved ${entry.name}.`, {
+    toast(toCheck ? `Confirmed ${nameCase(entry.name)}.` : `Saved ${nameCase(entry.name)}.`, {
       label: 'Undo',
       run: () => runAction(async () => { await repo.saveRow('entries', entry.id, before); toast('Changed back.'); }),
     });
   }
 
   const where = `${mealName(entry.meal)}, ${entry.date === today() ? 'today' : formatDay(entry.date)}${entry.grams ? `, ${formatGrams(entry.grams)}` : ''}.`;
-  const s = openSheet({ title: entry.name },
+  const s = openSheet({ title: nameCase(entry.name) },
     h('div', { class: 'sheet-form' },
       h('p', { class: 'reason' }, keepUnits(where)),
       figures,
@@ -94,7 +94,7 @@ export function openEntrySheet({ repo, entry }) {
         save,
         h('div', { class: 'link-row' },
           entry.date !== today() && h('button', { type: 'button', class: 'text-button', onclick: async () => { if (await copyToToday(repo, [entry])) s.close(); } }, titleCase('copy to today')),
-          h('button', { type: 'button', class: 'text-button danger', onclick: async () => { if (await deleteWithUndo(repo, 'entries', entry)) s.close(); } }, 'Delete Entry')))));
+          h('button', { type: 'button', class: 'text-button danger', onclick: async () => { if (await deleteWithUndo(repo, 'entries', { id: entry.id, name: nameCase(entry.name) })) s.close(); } }, 'Delete Entry')))));
   render();
   return s;
 }

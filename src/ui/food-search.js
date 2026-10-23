@@ -3,7 +3,7 @@
 
 import { h, fill } from './dom.js';
 import { foodSub } from './format.js';
-import { rankFoods, normaliseName, isLive } from '../engine/index.js';
+import { rankFoods, normaliseName, isLive, nameCase } from '../engine/index.js';
 import { OfflineError } from '../errors.js';
 
 export const SEARCH_PAUSE_MS = 400;
@@ -25,7 +25,7 @@ export function createFoodSearch({ repo, onPick, extra = () => [] }) {
   const row = (food) => h('li', {},
     h('button', { type: 'button', class: 'list-row', onclick: () => onPick(food) },
       h('span', { class: 'list-main' },
-        h('span', { class: 'list-title' }, food.name),
+        h('span', { class: 'list-title' }, nameCase(food.name)),
         h('span', { class: 'list-sub' }, foodSub(food)))));
 
   function render(query, state) {

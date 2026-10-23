@@ -6,7 +6,7 @@ import { h, fill, chips, field, openSheet, toast } from './dom.js';
 import { runAction, mealNow, loggedToast, deleteWithUndo, offlineLabel, keepUnits } from './format.js';
 import { openGramsSheet } from './grams-sheet.js';
 import {
-  per100gFromText, per100gText, servingsFromText, customFood, editedFood, today, mealName, formatGrams, titleCase, NUTRIENTS,
+  per100gFromText, per100gText, servingsFromText, customFood, editedFood, today, mealName, formatGrams, titleCase, NUTRIENTS, nameCase,
 } from '../engine/index.js';
 
 const SOURCES = { off: 'Open Food Facts', cofid: 'CoFID', usda: 'USDA' };
@@ -97,11 +97,11 @@ export function openFoodSheet({ repo, food = null }) {
     busy = false;
     if (!saved) return render();
     s.close();
-    toast(isNew ? `Added ${row.name}.` : `Saved ${row.name}.`);
+    toast(isNew ? `Added ${nameCase(row.name)}.` : `Saved ${nameCase(row.name)}.`);
   }
 
   const meal = mealNow(repo);
-  const s = openSheet({ title: isNew ? 'Add a Food' : food.name },
+  const s = openSheet({ title: isNew ? 'Add a Food' : nameCase(food.name) },
     h('div', { class: 'sheet-form' },
       !isNew && h('div', { class: 'section' },
         h('p', { class: 'reason' }, factsLine(food)),
@@ -112,7 +112,7 @@ export function openFoodSheet({ repo, food = null }) {
       field('Weighed', stateChips, 'Raw, cooked or as sold: log it weighed the same way.'),
       h('section', { class: 'section', 'aria-label': 'Per 100 g' },
         h('h3', { class: 'subhead' }, 'Per 100 g'),
-        field('Kcal', kcal),
+        field('kcal', kcal),
         h('div', { class: 'row-3' }, ['protein', 'carbs', 'fat'].map((n) => field(NUTRIENT_LABELS[n], nutrients[n]))),
         h('div', { class: 'row-3' }, ['fibre', 'sugars', 'salt'].map((n) => field(NUTRIENT_LABELS[n], nutrients[n]))),
         h('p', { class: 'reason' }, 'Leave a figure blank when the label doesn’t give it. It shows as unknown, never 0.')),
@@ -123,7 +123,7 @@ export function openFoodSheet({ repo, food = null }) {
         save,
         !isNew && h('div', { class: 'link-row' },
           h('button', { type: 'button', class: 'text-button', onclick: () => { s.close(); logFood(repo, food); } }, titleCase(`log to ${mealName(meal).toLowerCase()}`)),
-          h('button', { type: 'button', class: 'text-button danger', onclick: async () => { if (await deleteWithUndo(repo, 'foods', food)) s.close(); } }, 'Delete Food')))));
+          h('button', { type: 'button', class: 'text-button danger', onclick: async () => { if (await deleteWithUndo(repo, 'foods', { id: food.id, name: nameCase(food.name) })) s.close(); } }, 'Delete Food')))));
   renderServings();
   render();
   return s;

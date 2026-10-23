@@ -9,7 +9,7 @@ import { createFoodSearch } from './food-search.js';
 import { openGramsSheet } from './grams-sheet.js';
 import { openCheckSheet } from './check-sheet.js';
 import {
-  amountsFor, kcalOf, formatKcal, formatGrams, formatDay, today, titleCase, myFoods, isLive, batchesOf, servedAmounts, unknownLines, servingSplits,
+  amountsFor, kcalOf, formatKcal, formatGrams, formatDay, today, titleCase, myFoods, isLive, batchesOf, servedAmounts, unknownLines, servingSplits, nameCase,
 } from '../engine/index.js';
 
 const STATES = { raw: 'Raw', cooked: 'Cooked', asSold: 'As sold' };
@@ -29,7 +29,7 @@ function openMyFoods({ repo, onPick }) {
     fill(list, foods.length
       ? h('ul', { class: 'list', 'aria-label': 'Your foods' }, foods.slice(0, MINE_SHOWN).map((food) => h('li', {},
         h('button', { type: 'button', class: 'list-row', onclick: () => { s.close(); onPick(food); } },
-          h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, food.name), h('span', { class: 'list-sub' }, foodSub(food)))))))
+          h('span', { class: 'list-main' }, h('span', { class: 'list-title' }, nameCase(food.name)), h('span', { class: 'list-sub' }, foodSub(food)))))))
       : h('p', { class: 'empty-line' }, search.value.trim() ? 'None of your foods match. Try fewer words.' : 'Foods you log or add appear here.'));
   }
   const s = openSheet({ title: 'My Foods' }, h('div', { class: 'sheet-form' }, search, list));
@@ -43,7 +43,7 @@ const SHARES = { 3: 'A Third', 4: 'A Quarter', 5: 'A Fifth' };
 
 /** The grams sheet's measure for grams served from a recipe's batch: a third, a quarter or a fifth of it to pick. */
 const batchMeasure = (recipe, batch) => ({
-  title: recipe.name,
+  title: nameCase(recipe.name),
   amounts: (g) => servedAmounts(batch, g),
   estimated: !!batch.totals.estimated,
   assumptions: batch.ingredients.filter((l) => l.estimated && l.assumptions).map((l) => l.assumptions).join(' ') || null,
@@ -65,7 +65,7 @@ function openMyRecipes({ repo, onPick }) {
     ? h('ul', { class: 'list', 'aria-label': 'Your recipes' }, made.map(({ recipe, batch }) => h('li', {},
       h('button', { type: 'button', class: 'list-row', onclick: () => { s.close(); onPick(recipe, batch); } },
         h('span', { class: 'list-main' },
-          h('span', { class: 'list-title' }, recipe.name),
+          h('span', { class: 'list-title' }, nameCase(recipe.name)),
           h('span', { class: 'list-sub' }, keepUnits(`Made ${madeOn(batch.date)}, ${formatGrams(batch.finishedGrams)}`)))))))
     : h('p', { class: 'empty-line' }, 'Make a recipe once, and it can go in a saved meal.')));
   return s;
@@ -83,7 +83,7 @@ export function createLinesEditor({ repo, lines: start, what = 'food', placehold
   const update = (next) => { lines = next; render(); onChange(lines); };
 
   function row(line, i) {
-    const name = line.recipe ? line.recipe.name : line.food.name;
+    const name = nameCase(line.recipe ? line.recipe.name : line.food.name);
     const amounts = !(line.grams > 0) ? null
       : line.recipe ? (line.batch ? servedAmounts(line.batch, line.grams) : null) : amountsFor(line.food.per100g, line.grams, line.food);
     const kcal = amounts ? kcalOf(amounts.kcalMilli) : null;

@@ -44,7 +44,7 @@ export function openQuickAdd({ repo, date, meal }) {
   }
 
   const s = openSheet({ title: 'Quick Add' }, h('div', { class: 'sheet-form' },
-    field('Kcal', kcal),
+    field('kcal', kcal),
     h('div', { class: 'row-3' }, field('Protein g', protein), field('Carbs g', carbs), field('Fat g', fat)),
     field('Name', name),
     h('div', { class: 'sheet-actions' }, button)));
