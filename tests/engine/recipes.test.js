@@ -78,3 +78,40 @@ test('copied at logging: changing a food or the recipe later never changes a bat
   assert.deepEqual({ b, entry }, before);
   assert.deepEqual(makeAgain(b), [{ foodId: 'f-oats', grams: 80 }, { foodId: 'f-milk', grams: 400 }]);
 });
+
+test('recipes: portions logged together keep the remainder in the last, and count against what’s left', async () => {
+  const { portions, portionsLogged, portionsLeft } = await import('../../src/engine/recipes.js');
+  const b = makeBatch({ finishedGrams: 500, portions: 3 });
+  const two = portions(b, 2, 2);
+  assert.deepEqual([two.grams, two.nutrition.kcalMilli], [166 + 168, 182_613 + 182_614]);
+  const entry = batchEntry({ id: 'e9', batch: b, name: 'Porridge', portionNumber: 1, portionCount: 2, date: '2026-10-23', meal: 'lunch', createdAt: 1 });
+  assert.deepEqual([entry.grams, entry.portionBasis], [332, 'serving']);
+  const logged = [{ ...entry, deletedAt: null }, { id: 'x', batchId: 'b1', grams: 100, portionBasis: 'typed', deletedAt: null }];
+  assert.equal(portionsLogged(b, logged), 2);                  // grams served don't count as portions
+  assert.equal(portionsLeft(b, logged), 1);
+  assert.equal(portionsLeft({ ...b, portions: null }, logged), 0);
+  assert.throws(() => portions(b, 3, 2), RangeError);
+});
+
+test('recipes: making a batch sums or weighs the dish, subtracts the pot only when weighed, and says what’s missing', async () => {
+  const { makeBatch: make, batchesOf, nextIngredients, leftText } = await import('../../src/engine/recipes.js');
+  const lines = [{ food: OATS, grams: 80 }, { food: MILK, grams: 400 }, { food: HONEY, grams: 21 }];
+  const pot = { id: 'p1', grams: 300 };
+  const summed = make({ id: 'b9', recipeId: 'r1', date: '2026-10-23', lines, pot }).batch;
+  assert.deepEqual([summed.finishedGrams, summed.potId, summed.weighedGrams, summed.totals.estimated], [501, null, null, true]);
+  assert.deepEqual(summed.ingredients.map((l) => [l.foodId, l.state, l.grams]), [['f-oats', 'raw', 80], ['f-milk', 'asSold', 400], ['f-honey', 'asSold', 21]]);
+  const weighed = make({ id: 'b9', recipeId: 'r1', date: '2026-10-23', lines, weighedGrams: 812, pot, portions: 2 }).batch;
+  assert.deepEqual([weighed.finishedGrams, weighed.potId, weighed.portions], [512, 'p1', 2]);
+  assert.deepEqual(make({ id: 'b', recipeId: 'r', date: '2026-10-23', lines, weighedGrams: 250, pot }), { error: 'The dish weighs less than the pot. Weigh it again.' });
+  assert.deepEqual(make({ id: 'b', recipeId: 'r', date: '2026-10-23', lines: [] }), { error: 'Add an ingredient.' });
+  assert.deepEqual(make({ id: 'b', recipeId: 'r', date: '2026-10-23', lines: [{ food: OATS, grams: null }] }), { error: 'Enter the grams of each ingredient.' });
+  assert.deepEqual(make({ id: 'b', recipeId: 'r', date: '2026-10-23', lines, portions: 0 }), { error: 'Enter 1 to 100 portions, or leave it blank.' });
+
+  const recipe = { id: 'r1', ingredients: [{ foodId: 'f-oats', grams: 50 }] };
+  assert.deepEqual(nextIngredients(recipe, []), [{ foodId: 'f-oats', grams: 50 }]);
+  const older = { ...summed, id: 'old', date: '2026-10-01', deletedAt: null };
+  const newer = { ...weighed, id: 'new', deletedAt: null };
+  assert.deepEqual(batchesOf([older, newer, { ...newer, id: 'gone', deletedAt: 1 }], 'r1').map((b) => b.id), ['new', 'old']);
+  assert.deepEqual(nextIngredients(recipe, [older, newer]), [{ foodId: 'f-oats', grams: 80 }, { foodId: 'f-milk', grams: 400 }, { foodId: 'f-honey', grams: 21 }]);
+  assert.equal(leftText({ ...newer, finishedGrams: 1500 }, [{ id: 'e', batchId: 'new', grams: 450, deletedAt: null }]), '~1,050 g left');
+});

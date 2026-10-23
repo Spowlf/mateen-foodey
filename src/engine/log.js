@@ -3,33 +3,57 @@
 import { addDays, today, nowTime, formatDay } from './dates.js';
 import { amountsFor, kcalOf, gramsOf, formatKcal, formatGrams } from './nutrition.js';
 import { foodEntry, isLive, dayTotal } from './entries.js';
+import { hasLeft } from './recipes.js';
 import { MAX_GRAMS } from './parse.js';
-import { sourceKey } from './match.js';
+import { adoptFoods } from './foods.js';
 import { titleCase } from './text.js';
 
 export const QUICK_LOG_DAYS = 90;
 
+export const BATCH_CHIP_DAYS = 14;
+
 /**
- * Quick-log chips: foods you've logged in the last 90 days, most logged in this meal slot first,
- * then most logged overall, then most recent, then by name. Each is { food, grams } at its usual portion.
+ * Quick-log chips: batches made in the last 14 days with something left (newest first), then your
+ * foods and saved meals together, most logged in this meal slot first, then most logged in the last
+ * 90 days, then most recent, then by name. A saved meal counts once each time it's logged, however
+ * many items it has; one never logged yet still shows. Each is
+ * { kind: 'batch', batch, recipe } | { kind: 'meal', savedMeal } | { kind: 'food', food, grams }.
  */
-export function quickLogFoods({ entries, foods, meal, today, n = 8 }) {
+export function quickLogItems({ entries, foods, savedMeals = [], batches = [], recipes = [], meal, today, n = 8 }) {
+  const fromBatch = addDays(today, -BATCH_CHIP_DAYS);
+  const recipeById = new Map(recipes.map((r) => [r.id, r]));
+  const batchChips = batches
+    .filter((b) => isLive(b) && b.date >= fromBatch && b.date <= today && recipeById.has(b.recipeId) && hasLeft(b, entries))
+    .sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : (b.updatedAt ?? 0) - (a.updatedAt ?? 0)))
+    .map((batch) => ({ kind: 'batch', batch, recipe: recipeById.get(batch.recipeId), key: batch.id }));
+
   const from = addDays(today, -QUICK_LOG_DAYS);
   const inSlot = new Map();
   const all = new Map();
+  const last = new Map();
+  const counted = new Set();
+  const count = (key, e) => {
+    all.set(key, (all.get(key) ?? 0) + 1);
+    if (e.meal === meal) inSlot.set(key, (inSlot.get(key) ?? 0) + 1);
+    last.set(key, Math.max(last.get(key) ?? 0, e.createdAt ?? 0));
+  };
   for (const e of entries) {
-    if (!isLive(e) || e.status !== 'logged' || !e.foodId || e.date < from || e.date > today) continue;
-    all.set(e.foodId, (all.get(e.foodId) ?? 0) + 1);
-    if (e.meal === meal) inSlot.set(e.foodId, (inSlot.get(e.foodId) ?? 0) + 1);
+    if (!isLive(e) || e.status !== 'logged' || e.date < from || e.date > today) continue;
+    if (e.savedMealId) {
+      const once = `${e.savedMealId}|${e.date}|${e.createdAt}`;
+      if (!counted.has(once)) { counted.add(once); count(`meal:${e.savedMealId}`, e); }
+    } else if (e.foodId && !e.batchId) count(`food:${e.foodId}`, e);
   }
-  return foods
-    .filter((f) => isLive(f) && all.has(f.id) && f.usualGrams > 0)
-    .sort((a, b) => (inSlot.get(b.id) ?? 0) - (inSlot.get(a.id) ?? 0)
-      || all.get(b.id) - all.get(a.id)
-      || (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0)
-      || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-    .slice(0, n)
-    .map((food) => ({ food, grams: food.usualGrams }));
+  const others = [
+    ...foods.filter((f) => isLive(f) && all.has(`food:${f.id}`) && f.usualGrams > 0)
+      .map((food) => ({ kind: 'food', food, grams: food.usualGrams, key: `food:${food.id}`, name: food.name, lastUsed: food.lastUsedAt ?? 0 })),
+    ...savedMeals.filter((m) => isLive(m) && m.items?.length)
+      .map((savedMeal) => ({ kind: 'meal', savedMeal, key: `meal:${savedMeal.id}`, name: savedMeal.name, lastUsed: last.get(`meal:${savedMeal.id}`) ?? 0 })),
+  ].sort((a, b) => (inSlot.get(b.key) ?? 0) - (inSlot.get(a.key) ?? 0)
+    || (all.get(b.key) ?? 0) - (all.get(a.key) ?? 0)
+    || b.lastUsed - a.lastUsed
+    || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return [...batchChips, ...others].slice(0, n).map(({ key, name, lastUsed, ...item }) => item);
 }
 
 /** To check entries (saved by a Shortcut or left unconfirmed), newest first. */
@@ -56,43 +80,29 @@ export function figuresText(amounts, { estimated = false } = {}) {
   return parts.join(', ');
 }
 
-/** The check sheet's button: "Log 3 Items", or what's missing ("Pick a Food for Haggis", "Enter the Grams"). */
-export function checkButton(lines) {
+/**
+ * The check sheet's button: "Log 3 Items" (or "Add 3 Items" with verb 'add'), or what's missing
+ * ("Pick a Food for Haggis", "Enter the Grams").
+ */
+export function checkButton(lines, verb = 'log') {
   if (!lines.length) return { ready: false, label: 'Add a Food' };
   const unmatched = lines.find((l) => !l.food);
   if (unmatched) return { ready: false, label: titleCase(`pick a food for ${unmatched.name}`) };
   if (lines.some((l) => !(Number.isInteger(l.grams) && l.grams > 0 && l.grams <= MAX_GRAMS))) return { ready: false, label: 'Enter the Grams' };
-  return { ready: true, label: titleCase(`log ${lines.length} ${lines.length === 1 ? 'item' : 'items'}`) };
+  return { ready: true, label: titleCase(`${verb} ${lines.length} ${lines.length === 1 ? 'item' : 'items'}`) };
 }
 
-const FOOD_FIELDS = ['name', 'brand', 'barcode', 'state', 'per100g', 'carbsIncludeFibre', 'servings', 'gramsPer100ml', 'source', 'sourceId', 'fetchedAt', 'assumptions'];
-
 /**
- * What logging lines saves: { foods, entries }. A line's food that's already yours is used as it is;
- * a source food you already have (same source and id) is reused; anything else becomes a new food.
- * Each entry copies its food's name, nutrition and assumptions. newId() gives fresh ids.
+ * What logging lines saves: { foods, entries }. Each line's food becomes one of yours (see
+ * adoptFoods), and each entry copies its food's name, nutrition and assumptions. newId() gives fresh
+ * ids. savedMealId marks entries logged from a saved meal.
  */
-export function logLines({ lines, foods, date, meal, origin = 'manual', newId, now }) {
-  const own = new Map(foods.filter((f) => isLive(f) && f.sourceId && f.source !== 'estimate').map((f) => [sourceKey(f), f]));
-  const added = [];
-  const entries = lines.map((line) => {
-    let food = line.food;
-    if (!food.id) {
-      const key = food.source !== 'estimate' && food.sourceId ? sourceKey(food) : null;
-      food = (key && own.get(key)) ?? null;
-      if (!food) {
-        food = {
-          id: newId(), ...Object.fromEntries(FOOD_FIELDS.map((f) => [f, line.food[f] ?? null])),
-          servings: line.food.servings ?? [], gramsPer100ml: line.food.gramsPer100ml ?? 100, carbsIncludeFibre: line.food.carbsIncludeFibre ? 1 : 0,
-          usualGrams: null, useCount: 0, lastUsedAt: null, userEdited: 0, deletedAt: null,
-        };
-        added.push(food);
-        if (key) own.set(key, food);
-      }
-    }
-    return foodEntry({ id: newId(), food, grams: line.grams, date, meal, portionBasis: line.portionBasis ?? 'typed', origin, createdAt: now });
-  });
-  return { foods: added, entries };
+export function logLines({ lines, foods, date, meal, origin = 'manual', newId, now, savedMealId = null }) {
+  const adopted = adoptFoods({ lines, foods, newId });
+  const entries = adopted.lines.map((line) => foodEntry({
+    id: newId(), food: line.food, grams: line.grams, date, meal, portionBasis: line.portionBasis ?? 'typed', origin, createdAt: now, savedMealId,
+  }));
+  return { foods: adopted.foods, entries };
 }
 
 /** With no target set: "1,240 kcal eaten today." */

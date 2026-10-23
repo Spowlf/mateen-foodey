@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quickLogFoods, toCheckEntries, checkButton, logLines, figuresText, lineAmounts, lineEstimated, eatenLine } from '../../src/engine/log.js';
+import { quickLogItems, toCheckEntries, checkButton, logLines, figuresText, lineAmounts, lineEstimated, eatenLine } from '../../src/engine/log.js';
 import { OATS, MILK, HONEY, BREAD, eaten } from './fixtures.js';
 
 const own = (food, extra = {}) => ({ ...food, usualGrams: 50, useCount: 1, lastUsedAt: 0, userEdited: 0, deletedAt: null, ...extra });
@@ -15,17 +15,17 @@ test('quick log: foods most logged in this meal slot come first, then overall, t
     ate('f-honey', 'lunch', '2026-06-01'),                 // over 90 days ago
     ate('f-honey', 'breakfast', '2026-10-21', { status: 'toCheck' }),   // not confirmed
   ];
-  const at = (meal) => quickLogFoods({ entries, foods, meal, today: '2026-10-23' }).map((c) => c.food.id);
+  const at = (meal) => quickLogItems({ entries, foods, meal, today: '2026-10-23' }).map((c) => c.food.id);
   assert.deepEqual(at('breakfast'), ['f-oats', 'f-milk', 'f-bread']);
   // Oats and milk are logged twice each overall: milk was used more recently.
   assert.deepEqual(at('lunch'), ['f-bread', 'f-milk', 'f-oats']);
   assert.deepEqual(at('dinner'), ['f-bread', 'f-milk', 'f-oats']);
-  assert.deepEqual(quickLogFoods({ entries, foods, meal: 'breakfast', today: '2026-10-23' })[0].grams, 50);
+  assert.deepEqual(quickLogItems({ entries, foods, meal: 'breakfast', today: '2026-10-23' })[0].grams, 50);
 });
 
 test('quick log: deleted foods and foods with no usual portion are left out', () => {
   const foods = [own(OATS, { deletedAt: 1 }), own(MILK, { usualGrams: null })];
-  assert.deepEqual(quickLogFoods({ entries: [ate('f-oats', 'lunch'), ate('f-milk', 'lunch')], foods, meal: 'lunch', today: '2026-10-23' }), []);
+  assert.deepEqual(quickLogItems({ entries: [ate('f-oats', 'lunch'), ate('f-milk', 'lunch')], foods, meal: 'lunch', today: '2026-10-23' }), []);
 });
 
 test('To check: live To check entries, newest first', () => {
@@ -101,4 +101,39 @@ test('synced: when the copy on screen was last synced', async () => {
   assert.equal(syncedPhrase(null, now), 'Not synced yet');
   assert.equal(syncedPhrase(new Date(2026, 9, 23, 8, 15).getTime(), now), 'Last synced today at 08:15');
   assert.equal(syncedPhrase(new Date(2026, 8, 30, 8, 15).getTime(), now), 'Last synced 30 Sep 2026 at 08:15');
+});
+
+test('quick log: live batches with something left come first, then foods and saved meals by use in this slot', () => {
+  const foods = [own(OATS), own(MILK)];
+  const savedMeals = [
+    { id: 'm-brekkie', name: 'Brekkie', items: [{ foodId: 'f-oats', grams: 50 }, { foodId: 'f-milk', grams: 200 }], deletedAt: null },
+    { id: 'm-new', name: 'A new one', items: [{ foodId: 'f-oats', grams: 50 }], deletedAt: null },
+    { id: 'm-gone', name: 'Gone', items: [{ foodId: 'f-oats', grams: 50 }], deletedAt: 1 },
+  ];
+  const recipes = [{ id: 'r1', name: 'Chilli', deletedAt: null }];
+  const batch = (id, date, finishedGrams) => ({ id, recipeId: 'r1', date, finishedGrams, deletedAt: null });
+  const batches = [batch('b-old', '2026-10-01', 900), batch('b-new', '2026-10-22', 900), batch('b-eaten', '2026-10-21', 300), batch('b-left', '2026-10-20', 900)];
+  // Brekkie logged twice at breakfast (two items each time: counted once a time), oats once on its own there.
+  const brekkie = (date, createdAt) => [
+    ate('f-oats', 'breakfast', date, { savedMealId: 'm-brekkie', createdAt }), ate('f-milk', 'breakfast', date, { savedMealId: 'm-brekkie', createdAt }),
+  ];
+  const entries = [
+    ...brekkie('2026-10-20', 1), ...brekkie('2026-10-21', 2),
+    ate('f-oats', 'breakfast'), ate('f-milk', 'lunch'), ate('f-milk', 'lunch'), ate('f-milk', 'lunch'),
+    { ...ate(null, 'dinner', '2026-10-21'), batchId: 'b-eaten', grams: 300 },
+  ];
+  const items = (meal) => quickLogItems({ entries, foods, savedMeals, batches, recipes, meal, today: '2026-10-23' })
+    .map((i) => (i.kind === 'batch' ? i.batch.id : i.kind === 'meal' ? i.savedMeal.id : i.food.id));
+  assert.deepEqual(items('breakfast'), ['b-new', 'b-left', 'm-brekkie', 'f-oats', 'f-milk', 'm-new']);
+  assert.deepEqual(items('lunch'), ['b-new', 'b-left', 'f-milk', 'm-brekkie', 'f-oats', 'm-new']);
+  const first = quickLogItems({ entries, foods, savedMeals, batches, recipes, meal: 'breakfast', today: '2026-10-23' })[0];
+  assert.equal(first.recipe.name, 'Chilli');
+  assert.equal(quickLogItems({ entries, foods, savedMeals, batches, recipes, meal: 'breakfast', today: '2026-10-23', n: 3 }).length, 3);
+});
+
+test('log lines: entries from a saved meal say so', () => {
+  let n = 0;
+  const { entries } = logLines({ lines: [{ food: own(OATS), grams: 50 }], foods: [], date: '2026-10-23', meal: 'lunch', newId: () => `id${++n}`, now: 1, savedMealId: 'm1' });
+  assert.equal(entries[0].savedMealId, 'm1');
+  assert.equal(checkButton([{ name: 'Oats', food: OATS, grams: 50 }], 'add').label, 'Add 1 Item');
 });

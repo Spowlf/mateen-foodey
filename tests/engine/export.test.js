@@ -60,6 +60,7 @@ test('restore check: broken references between foods, recipes, batches, pots and
   const cases = [
     [(t) => { t.entries[0].foodId = 'gone'; }, 'an entry names a food'],
     [(t) => { t.entries[0].batchId = 'gone'; }, 'an entry names a batch'],
+    [(t) => { t.entries[0].savedMealId = 'gone'; }, 'an entry names a saved meal'],
     [(t) => { t.batches[0].recipeId = 'gone'; }, 'a batch names a recipe'],
     [(t) => { t.batches[0].potId = 'gone'; }, 'a batch names a pot'],
     [(t) => { t.batches[0].ingredients[0].foodId = 'gone'; }, 'a batch names a food'],

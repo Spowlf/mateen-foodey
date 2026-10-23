@@ -2,7 +2,7 @@
 
 import { toast } from './dom.js';
 import { OfflineError } from '../errors.js';
-import { kcalOf, formatKcal } from '../engine/index.js';
+import { kcalOf, formatKcal, formatGrams, mealForTime, mealName, nowTime } from '../engine/index.js';
 
 /** Runs an action from a tap; a failure becomes a toast that says nothing changed. Returns its result or null. */
 export async function runAction(fn) {
@@ -33,3 +33,37 @@ export function foodSub(food) {
 
 /** A figure never splits from its unit at the end of a line ("100 g", "176 kcal"). */
 export const keepUnits = (text) => String(text).replace(/(\d) (g|kcal|ml)\b/g, '$1\u00a0$2');
+
+/** The meal slot for now, from the meal times in Settings. */
+export const mealNow = (repo) => mealForTime(nowTime(), repo.setting('mealTimes') ?? undefined);
+
+/**
+ * "Logged 40 g Porridge oats to lunch." (a food's name keeps its own case), with Undo, which removes
+ * the entries and then runs onUndo.
+ */
+export function loggedToast(repo, entries, { onUndo = null } = {}) {
+  const n = entries.length;
+  const what = n === 1 ? `${entries[0].grams ? `${formatGrams(entries[0].grams)} ` : ''}${entries[0].name}` : `${n} items`;
+  toast(`Logged ${what} to ${entries[0] ? mealName(entries[0].meal).toLowerCase() : 'today'}.`, {
+    label: 'Undo',
+    run: () => runAction(async () => {
+      await repo.deleteEntries(entries.map((e) => e.id));
+      onUndo?.();
+      toast('Removed.');
+    }),
+  });
+}
+
+/** Deletes a row, then "Deleted Chilli." with Undo. Resolves true when it was deleted. */
+export async function deleteWithUndo(repo, table, row) {
+  const done = await runAction(() => repo.deleteRow(table, row.id));
+  if (!done) return false;
+  toast(`Deleted ${row.name}.`, {
+    label: 'Undo',
+    run: () => runAction(async () => { await repo.restoreRow(table, row.id); toast(`${row.name} is back.`); }),
+  });
+  return true;
+}
+
+/** A button's label while it can't save: what's missing for that ("Connect to Save", "Needs a Connection"). */
+export const offlineLabel = (repo) => (!repo.connected() ? 'Connect to Save' : !navigator.onLine ? 'Needs a Connection' : null);

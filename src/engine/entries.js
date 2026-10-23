@@ -11,7 +11,7 @@ const checkGrams = (grams) => {
 };
 
 /** An entry for grams of a food. */
-export function foodEntry({ id, food, grams, date, meal, portionBasis, origin = 'manual', status = 'logged', createdAt }) {
+export function foodEntry({ id, food, grams, date, meal, portionBasis, origin = 'manual', status = 'logged', createdAt, savedMealId = null }) {
   checkGrams(grams);
   return {
     id,
@@ -19,6 +19,7 @@ export function foodEntry({ id, food, grams, date, meal, portionBasis, origin = 
     meal,
     foodId: food.id ?? null,
     batchId: null,
+    savedMealId,
     name: food.name,
     grams,
     nutrition: amountsFor(food.per100g, grams, food),
@@ -48,6 +49,7 @@ export function quickEntry({ id, date, meal, kcal, proteinG = null, carbsG = nul
     meal,
     foodId: null,
     batchId: null,
+    savedMealId: null,
     name: name?.trim() || 'Quick add',
     grams: null,
     nutrition: {

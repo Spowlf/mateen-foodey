@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS entries (
   meal TEXT NOT NULL CHECK (meal IN ('breakfast', 'lunch', 'dinner', 'snacks')),
   foodId TEXT,
   batchId TEXT,
+  savedMealId TEXT,
   name TEXT NOT NULL,
   grams INTEGER CHECK (grams IS NULL OR (grams > 0 AND grams <= 5000)),
   nutrition TEXT NOT NULL,

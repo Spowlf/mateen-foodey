@@ -4,6 +4,7 @@ import { idb } from './db/idb.js';
 import { createRepo } from './db/repo.js';
 import { renderLog } from './ui/log.js';
 import { renderSettings } from './ui/settings.js';
+import { renderFoods } from './ui/foods.js';
 import { renderLater } from './ui/later.js';
 import { toast } from './ui/dom.js';
 import { toCheckEntries, syncedPhrase } from './engine/index.js';
@@ -26,7 +27,7 @@ window.addEventListener('scroll', unscrollWindow, { passive: true });
 const SCREENS = {
   log: { title: 'Log', render: renderLog },
   overview: { title: 'Overview', render: renderLater('overview') },
-  foods: { title: 'Foods', render: renderLater('foods') },
+  foods: { title: 'Foods', render: renderFoods },
   history: { title: 'History', render: renderLater('history') },
   weight: { title: 'Weight', render: renderLater('weight') },
   settings: { title: 'Settings', render: renderSettings },

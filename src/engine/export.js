@@ -21,6 +21,7 @@ const blank = (v) => v === undefined || v === null || (typeof v === 'string' && 
 export const REFERENCES = [
   ['entries', (r) => [r.foodId], 'foods', 'an entry names a food'],
   ['entries', (r) => [r.batchId], 'batches', 'an entry names a batch'],
+  ['entries', (r) => [r.savedMealId], 'savedMeals', 'an entry names a saved meal'],
   ['batches', (r) => [r.recipeId], 'recipes', 'a batch names a recipe'],
   ['batches', (r) => [r.potId], 'pots', 'a batch names a pot'],
   ['batches', (r) => (Array.isArray(r.ingredients) ? r.ingredients.map((l) => l?.foodId) : []), 'foods', 'a batch names a food'],

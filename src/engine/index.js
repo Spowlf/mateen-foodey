@@ -8,6 +8,7 @@ export * from './parse.js';
 export * from './match.js';
 export * from './log.js';
 export * from './entries.js';
+export * from './foods.js';
 export * from './meals.js';
 export * from './recipes.js';
 export * from './exercise.js';

@@ -192,6 +192,8 @@ main {
 .list-amount { font-family: var(--font-num); font-weight: 700; flex: none; }
 .list-end { display: grid; justify-items: end; flex: none; text-align: right; }
 .empty-line { color: var(--ink-2); padding: var(--s3) 0; }
+/* A line still waiting for its grams. */
+.list-amount.missing { color: var(--ink-2); font: 600 var(--t-s) var(--font-text); }
 
 /* To check: each row's one-tap Confirm sits beside it, never behind a swipe. */
 .check-row { display: flex; align-items: center; padding-right: var(--s3); }
@@ -312,6 +314,9 @@ main {
 }
 .row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3); }
 .row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); }
+/* A food's serving: its name, its grams and Remove on one row. */
+.serving-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: var(--s3); align-items: end; }
+.serving-row .text-button { margin: 0; min-height: var(--touch); }
 
 /* Buttons: one primary (filled) and one secondary (text) style. Danger is the secondary style in red. */
 
@@ -417,7 +422,7 @@ main {
 @media (hover: hover) { .update:hover { background: var(--accent-press); } }
 
 /* Figures always line up. */
-.num, .list-amount, .key, .pad-display, .badge, .headline, .line-grams {
+.num, .list-amount, .key, .pad-display, .badge, .headline, .line-grams, .chip-sub {
   font-variant-numeric: lining-nums tabular-nums;
   font-feature-settings: "lnum" 1, "tnum" 1;
 }

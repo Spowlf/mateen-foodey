@@ -32,11 +32,12 @@ function openSwap({ repo, line, onPick }) {
 }
 
 /**
- * openCheckSheet({ repo, lines, onChange, onLog }): lines are { name, food, grams, portionBasis,
+ * openCheckSheet({ repo, lines, onChange, onLog, verb }): lines are { name, food, grams, portionBasis,
  * alternatives, state }. onChange(lines) runs on every edit (the draft keeps them); onLog(lines) saves
  * and resolves true when done (the sheet closes) or false (it stays, with the lines kept).
+ * verb 'add' makes the button "Add 3 Items", for a recipe or saved meal.
  */
-export function openCheckSheet({ repo, lines: start, onChange, onLog }) {
+export function openCheckSheet({ repo, lines: start, onChange, onLog, verb = 'log' }) {
   let lines = start.map((l) => ({ ...l }));
   let busy = false;
   const list = h('div', { class: 'lines' });
@@ -78,13 +79,13 @@ export function openCheckSheet({ repo, lines: start, onChange, onLog }) {
     const estimated = lines.some(lineEstimated);
     fill(total, sum && h('p', { class: 'headline-protein' }, keepUnits(`Together: ${figuresText(sum, { estimated })}`)),
       sum && unknownLines(sum).map((l) => h('p', { class: 'reason' }, l)));
-    const state = checkButton(lines);
+    const state = checkButton(lines, verb);
     button.disabled = busy || !state.ready;
-    button.textContent = busy ? 'Logging' : state.label;
+    button.textContent = busy ? (verb === 'log' ? 'Logging' : 'Adding') : state.label;
   }
 
   async function log() {
-    if (busy || !checkButton(lines).ready) return;
+    if (busy || !checkButton(lines, verb).ready) return;
     busy = true;
     render();
     const done = await onLog(lines);

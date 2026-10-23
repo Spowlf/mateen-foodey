@@ -94,6 +94,8 @@ test('PUT: a live row naming a food that isn’t saved is refused, so every back
   assert.equal(res.body.error, 'Nothing changed: an entry names a food that isn’t saved yet.');
   const meal = await w.call('PUT', '/savedMeals/m1', { body: { name: 'Breakfast', items: [{ foodId: 'f-missing', grams: 50 }] } });
   assert.equal(meal.body.error, 'Nothing changed: a saved meal names a food that isn’t saved yet.');
+  const fromMeal = await w.call('PUT', '/entries/e2', { body: entry({ foodId: null, savedMealId: 'm-missing' }) });
+  assert.equal(fromMeal.body.error, 'Nothing changed: an entry names a saved meal that isn’t saved yet.');
   // A deleted food still counts: old entries keep naming it.
   await w.call('PUT', '/foods/f-oats', { body: food() });
   await w.call('DELETE', '/foods/f-oats');

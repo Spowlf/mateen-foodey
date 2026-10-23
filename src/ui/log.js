@@ -5,7 +5,9 @@
 // edit, cleared only once the backend has the entries.
 
 import { h, fill, chips, toast, icon } from './dom.js';
-import { runAction, keepUnits } from './format.js';
+import { runAction, keepUnits, mealNow as slotNow, loggedToast } from './format.js';
+import { logSavedMeal } from './saved-meal-sheet.js';
+import { openBatchLog } from './recipe-sheets.js';
 import { renderHeadline } from './headline.js';
 import { createFoodSearch } from './food-search.js';
 import { openGramsSheet } from './grams-sheet.js';
@@ -15,7 +17,7 @@ import { photoForParse } from './photo.js';
 import { submitDraft } from '../db/drafts.js';
 import { OfflineError } from '../errors.js';
 import {
-  today, nowTime, mealForTime, MEALS, mealName, emptyLogForm, isBlank, quickLogFoods, toCheckEntries, amountsFor,
+  today, MEALS, mealName, emptyLogForm, isBlank, quickLogItems, toCheckEntries, leftText, amountsFor,
   formatGrams, formatDayShort, titleCase, kcalOf, formatKcal,
 } from '../engine/index.js';
 
@@ -39,7 +41,7 @@ export function renderLog(root, { repo }) {
   let showAllToCheck = false;
   let offline = !navigator.onLine;
 
-  const mealNow = () => mealForTime(nowTime(), repo.setting('mealTimes') ?? undefined);
+  const mealNow = () => slotNow(repo);
   const freshForm = () => ({ ...emptyLogForm({ id: crypto.randomUUID(), date: today(), meal: mealNow() }), origin: 'sentence', mealPicked: false });
   const keep = () => repo.draft.save(form).catch(() => {});
   const meal = () => (form?.mealPicked ? form.meal : mealNow());
@@ -92,18 +94,8 @@ export function renderLog(root, { repo }) {
 
   // Logging, with Undo
 
-  async function logged(entries, { restore = null } = {}) {
-    const n = entries.length;
-    // A food's name keeps its own case: it's a name.
-    const what = n === 1 ? `${entries[0].grams ? `${formatGrams(entries[0].grams)} ` : ''}${entries[0].name}` : `${n} items`;
-    toast(`Logged ${what} to ${entries[0] ? mealName(entries[0].meal).toLowerCase() : 'today'}.`, {
-      label: 'Undo',
-      run: () => runAction(async () => {
-        await repo.deleteEntries(entries.map((e) => e.id));
-        if (restore) { form = { ...restore, id: crypto.randomUUID() }; keep(); renderAdd(); }
-        toast('Removed.');
-      }),
-    });
+  function logged(entries, { restore = null } = {}) {
+    loggedToast(repo, entries, { onUndo: restore && (() => { form = { ...restore, id: crypto.randomUUID() }; keep(); renderAdd(); }) });
   }
 
   async function logOne(food, grams, portionBasis) {
@@ -116,14 +108,34 @@ export function renderLog(root, { repo }) {
   // Quick log
 
   function renderQuick() {
-    const items = repo.connected() ? quickLogFoods({ entries: S.entries, foods: S.foods, meal: meal(), today: today() }) : [];
+    const items = repo.connected() ? quickLogItems({
+      entries: S.entries, foods: S.foods, savedMeals: S.savedMeals, batches: S.batches, recipes: S.recipes, meal: meal(), today: today(),
+    }) : [];
     el.quick.hidden = !items.length;
     if (!items.length) return fill(el.quick);
-    fill(el.quick, h('div', { class: 'chips', role: 'group', 'aria-label': `Quick log to ${mealName(meal()).toLowerCase()}` },
-      items.map(({ food, grams }) => h('button', {
+    const chip = (item) => {
+      if (item.kind === 'batch') {
+        // Serving from a batch asks for grams or portions.
+        const left = leftText(item.batch, S.entries);
+        return h('button', {
+          type: 'button', class: 'chip', 'aria-label': `Log ${item.recipe.name}, ${left}`,
+          onclick: () => openBatchLog({ repo, batch: item.batch, recipe: item.recipe }),
+        }, item.recipe.name, h('span', { class: 'chip-sub' }, keepUnits(left)));
+      }
+      if (item.kind === 'meal') {
+        const n = item.savedMeal.items.length;
+        return h('button', {
+          type: 'button', class: 'chip', 'aria-label': `Log ${item.savedMeal.name}, ${n} ${n === 1 ? 'food' : 'foods'}`,
+          onclick: (e) => { e.currentTarget.disabled = true; logSavedMeal(repo, item.savedMeal, meal()).finally(() => renderQuick()); },
+        }, item.savedMeal.name, h('span', { class: 'chip-sub' }, `${n} ${n === 1 ? 'food' : 'foods'}`));
+      }
+      const { food, grams } = item;
+      return h('button', {
         type: 'button', class: 'chip', 'aria-label': `Log ${formatGrams(grams)} ${food.name}`,
         onclick: (e) => { e.currentTarget.disabled = true; logOne(food, grams, 'typed').finally(() => renderQuick()); },
-      }, food.name, h('span', { class: 'chip-sub' }, formatGrams(grams))))));
+      }, food.name, h('span', { class: 'chip-sub' }, formatGrams(grams)));
+    };
+    fill(el.quick, h('div', { class: 'chips', role: 'group', 'aria-label': `Quick log to ${mealName(meal()).toLowerCase()}` }, items.map(chip)));
   }
 
   // The add box

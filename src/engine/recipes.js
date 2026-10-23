@@ -1,8 +1,9 @@
 // Recipes and batches. A batch is one time a recipe was made: its ingredients' nutrition is copied in,
 // so editing a food never changes it. Its totals carry the ingredients' unknowns and estimates.
 
-import { amountsFor, sumAmounts, roundDiv, AMOUNT_FIELDS } from './nutrition.js';
+import { amountsFor, sumAmounts, roundDiv, AMOUNT_FIELDS, formatGrams } from './nutrition.js';
 import { isLive } from './entries.js';
+import { MAX_GRAMS } from './parse.js';
 
 /** A batch ingredient: grams of a food, as weighed (raw, cooked or as sold). */
 export function batchLine(food, grams) {
@@ -74,11 +75,40 @@ export function gramsLeft(batch, entries) {
 export const hasLeft = (batch, entries) => gramsLeft(batch, entries) > 0;
 
 /**
- * An entry from a batch: grams served, or one of its portions. Estimated ("~") when an ingredient was,
- * with those ingredients' assumptions copied in.
+ * Portions from to from + count − 1 together: grams and nutrition, each portion split as portion() does,
+ * so the remainder still lands in the last.
  */
-export function batchEntry({ id, batch, name, grams = null, portionNumber = null, date, meal, createdAt, origin = 'manual' }) {
-  const part = portionNumber == null ? { grams, nutrition: servedAmounts(batch, grams) } : portion(batch, portionNumber);
+export function portions(batch, from, count = 1) {
+  if (!Number.isInteger(count) || count < 1) throw new RangeError('no such portion');
+  const parts = Array.from({ length: count }, (_, i) => portion(batch, from + i));
+  const nutrition = {};
+  for (const f of AMOUNT_FIELDS) nutrition[f] = batch.totals[f] == null ? null : parts.reduce((s, p) => s + p.nutrition[f], 0);
+  nutrition.partial = [...(batch.totals.partial ?? [])];
+  nutrition.carbsIncludeFibre = !!batch.totals.carbsIncludeFibre;
+  return { grams: parts.reduce((s, p) => s + p.grams, 0), nutrition };
+}
+
+/**
+ * How many portions have been logged from a batch: each live entry logged by portion counts as its
+ * grams over a portion's weight, at least one.
+ */
+export function portionsLogged(batch, entries) {
+  if (!batch.portions) return 0;
+  const each = batch.finishedGrams / batch.portions;
+  return entries
+    .filter((e) => isLive(e) && e.batchId === batch.id && e.portionBasis === 'serving')
+    .reduce((n, e) => n + Math.max(1, Math.round((e.grams ?? 0) / each)), 0);
+}
+
+/** Portions not logged yet (0 when the batch isn't split into portions). */
+export const portionsLeft = (batch, entries) => (batch.portions ? Math.max(0, batch.portions - portionsLogged(batch, entries)) : 0);
+
+/**
+ * An entry from a batch: grams served, or count portions starting at portionNumber. Estimated ("~")
+ * when an ingredient was, with those ingredients' assumptions copied in.
+ */
+export function batchEntry({ id, batch, name, grams = null, portionNumber = null, portionCount = 1, date, meal, createdAt, origin = 'manual' }) {
+  const part = portionNumber == null ? { grams, nutrition: servedAmounts(batch, grams) } : portions(batch, portionNumber, portionCount);
   const assumptions = batch.ingredients.filter((l) => l.estimated && l.assumptions).map((l) => l.assumptions).join(' ') || null;
   return {
     id,
@@ -86,6 +116,7 @@ export function batchEntry({ id, batch, name, grams = null, portionNumber = null
     meal,
     foodId: null,
     batchId: batch.id,
+    savedMealId: null,
     name,
     grams: part.grams,
     nutrition: part.nutrition,
@@ -98,5 +129,39 @@ export function batchEntry({ id, batch, name, grams = null, portionNumber = null
   };
 }
 
+/**
+ * A batch, one time a recipe is made: lines are { food, grams } with every food one of yours.
+ * The finished weight is the lines' sum, or weighedGrams less the pot's grams. portions is optional.
+ * Returns { batch } or { error } (what to do, as a sentence).
+ */
+export function makeBatch({ id, recipeId, date, lines, weighedGrams = null, pot = null, portions: count = null }) {
+  if (!lines.length) return { error: 'Add an ingredient.' };
+  if (lines.some((l) => !(Number.isInteger(l.grams) && l.grams > 0 && l.grams <= MAX_GRAMS))) return { error: 'Enter the grams of each ingredient.' };
+  const ingredients = lines.map((l) => batchLine(l.food, l.grams));
+  const finished = finishedGrams({ lines: ingredients, weighedGrams, potGrams: pot?.grams ?? 0 });
+  if (finished == null) return { error: 'The dish weighs less than the pot. Weigh it again.' };
+  if (count != null && !(Number.isInteger(count) && count >= 1 && count <= 100)) return { error: 'Enter 1 to 100 portions, or leave it blank.' };
+  return {
+    batch: {
+      id, recipeId, date, ingredients, totals: batchTotals(ingredients), weighedGrams: weighedGrams ?? null, potId: weighedGrams == null ? null : pot?.id ?? null,
+      finishedGrams: finished, portions: count ?? null, deletedAt: null,
+    },
+  };
+}
+
+/** A recipe's live batches, newest first. */
+export const batchesOf = (batches, recipeId) => batches
+  .filter((b) => isLive(b) && b.recipeId === recipeId)
+  .sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : (b.updatedAt ?? 0) - (a.updatedAt ?? 0)));
+
+/** "~1,050 g left": the finished weight is weighed or summed, and what's eaten may not all be logged. */
+export const leftText = (batch, entries) => `~${formatGrams(gramsLeft(batch, entries))} left`;
+
 /** "Make Again": the last batch's ingredients, for editing. */
 export const makeAgain = (batch) => batch.ingredients.map((l) => ({ foodId: l.foodId, grams: l.grams }));
+
+/** What making a recipe starts from: the last batch's ingredients, or the recipe's own the first time. */
+export function nextIngredients(recipe, batches) {
+  const last = batchesOf(batches, recipe.id)[0];
+  return last ? makeAgain(last) : recipe.ingredients;
+}

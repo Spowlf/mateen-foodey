@@ -6,7 +6,7 @@
 import { SYNCED } from './schema.js';
 import { createApi } from './api.js';
 import { createDraftStore } from './drafts.js';
-import { today, logLines } from '../engine/index.js';
+import { today, logLines, adoptFoods } from '../engine/index.js';
 
 const PARSE_TIMEOUT_MS = 60_000;
 
@@ -133,12 +133,23 @@ export function createRepo({ db, fetch, now = () => Date.now(), newId = () => cr
 
     /**
      * Logs check sheet lines ({ food, grams, portionBasis }) on date in meal, with any new foods, in
-     * one write. Returns the saved entries.
+     * one write. savedMealId marks a saved meal's entries. Returns the saved entries.
      */
-    async logLines({ lines, date, meal, origin = 'manual' }) {
-      const { foods, entries } = logLines({ lines, foods: state.foods, date, meal, origin, newId, now: now() });
+    async logLines({ lines, date, meal, origin = 'manual', savedMealId = null }) {
+      const { foods, entries } = logLines({ lines, foods: state.foods, date, meal, origin, newId, now: now(), savedMealId });
       const result = await repo.saveBatch(foods.length ? { foods, entries } : { entries });
       return result.changes.entries ?? [];
+    },
+
+    /**
+     * Saves a row whose lines name foods (a saved meal's items, a recipe's or batch's ingredients):
+     * build(lines) gets the lines with every food one of yours and returns the row; any new foods go
+     * in the same write.
+     */
+    async saveWithFoods(table, lines, build) {
+      const adopted = adoptFoods({ lines, foods: state.foods, newId });
+      const row = build(adopted.lines);
+      return repo.saveBatch(adopted.foods.length ? { foods: adopted.foods, [table]: [row] } : { [table]: [row] });
     },
 
     /** Deletes several entries in one write (Undo after logging). */

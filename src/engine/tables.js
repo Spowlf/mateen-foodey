@@ -25,7 +25,7 @@ export const TABLES = {
   }),
   savedMeals: table(['name', 'items'], { required: ['name', 'items'], json: ['items'] }),
   entries: table([
-    'date', 'meal', 'foodId', 'batchId', 'name', 'grams', 'nutrition', 'nutritionBasis', 'portionBasis', 'assumptions',
+    'date', 'meal', 'foodId', 'batchId', 'savedMealId', 'name', 'grams', 'nutrition', 'nutritionBasis', 'portionBasis', 'assumptions',
     'status', 'origin', 'createdAt',
   ], {
     required: ['date', 'meal', 'name', 'nutrition', 'nutritionBasis', 'status', 'origin'],

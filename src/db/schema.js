@@ -69,6 +69,7 @@ export const STORES = {
  * @property {'breakfast'|'lunch'|'dinner'|'snacks'} meal
  * @property {string|null} foodId
  * @property {string|null} batchId
+ * @property {string|null} savedMealId   the saved meal it was logged from, so quick log can order saved meals by use
  * @property {string} name
  * @property {number|null} grams   null for quick add
  * @property {Amounts} nutrition
