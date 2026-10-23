@@ -13,31 +13,43 @@ Every request has the same header: `Authorization` = `Bearer YOUR-TOKEN` (the wo
 
 ## 1. Sync Health
 
-Sends today's active energy, steps and weight from the Health app. It runs each morning on its own, and from **Sync Health** on Overview. That button opens the Shortcut by name, so the name must be exactly `Sync Health`. iOS always switches to the Shortcuts app to run it; tap ◀ Mateen Foodey in the top-left corner to come back.
+Sends yesterday's and today's active energy, steps and weight from the Health app, so each run finishes yesterday and brings today up to date. It runs each morning on its own, and from **Sync Health** on Overview whenever you want today's activity so far. That button opens the Shortcut by name, so the name must be exactly `Sync Health`. iOS always switches to the Shortcuts app to run it; tap ◀ Mateen Foodey in the top-left corner to come back.
 
 In the Shortcuts app, make a new Shortcut called **Sync Health** with these actions:
 
-1. **Date**: Current Date.
-2. **Format Date**: Date Format *Custom*, `yyyy-MM-dd`. Rename the result *Day*.
-3. **Find Health Samples** where *Type* is *Active Energy* and *Start Date* is *Today*. Then **Calculate Statistics**: *Sum*. Rename the result *Active*.
-4. **Find Health Samples** where *Type* is *Steps* and *Start Date* is *Today*. Then **Calculate Statistics**: *Sum*. Rename the result *Steps*.
-5. **Find Health Samples** where *Type* is *Weight* and *Start Date* is *Today*, sorted by *Start Date*, *Latest First*, limit 1. Then **Get Details of Health Sample**: *Value*. Rename the result *Weight*.
-   - If Health shows your weight in stones or pounds, add **Convert Measurement** to *kilograms* after it. The Worker takes kilograms.
-6. **Dictionary** with:
-   - `date` (Text): *Day*
-   - `activeKcal` (Number): *Active*
-   - `steps` (Number): *Steps*
-   - `weightKg` (Number): *Weight*
-7. **Get Contents of URL**: `https://YOUR-WORKER/health`, *Method* POST, *Headers* `Authorization` = `Bearer YOUR-TOKEN`, *Request Body* JSON, set to the *Dictionary*.
-8. **Show Notification**: *Contents of URL*.
+1. **Date**: Current Date. Rename the result *Now*.
+2. **Repeat** 2 times. Everything from here to step 13 goes inside the Repeat: the first time round is yesterday, the second is today.
+3. **Calculate**: `2` − *Repeat Index*. This gives 1, then 0.
+4. **Adjust Date**: *Subtract* *Calculation Result* *days* from *Now*.
+5. **Adjust Date**: *Get Start of Day* of *Adjusted Date*. Rename the result *Start*.
+6. **Adjust Date**: *Add* 1 *day* to *Start*. Rename the result *End*.
+7. **Format Date**: *Start*, Date Format *Custom*, `yyyy-MM-dd`. Rename the result *Day*.
+8. **Find Health Samples** where *Type* is *Active Energy* and *Start Date* is between *Start* and *End*. Then **Calculate Statistics**: *Sum*. Rename the result *Active*.
+9. **Find Health Samples** where *Type* is *Steps* and *Start Date* is between *Start* and *End*. Then **Calculate Statistics**: *Sum*. Rename the result *Steps*.
+10. **Find Health Samples** where *Type* is *Weight* and *Start Date* is between *Start* and *End*, sorted by *Start Date*, *Latest First*, limit 1. Then **Get Details of Health Sample**: *Value*. Rename the result *Weight*.
+    - If Health shows your weight in stones or pounds, add **Convert Measurement** to *kilograms* after it. The Worker takes kilograms.
+11. **Dictionary** with:
+    - `date` (Text): *Day*
+    - `activeKcal` (Number): *Active*
+    - `steps` (Number): *Steps*
+    - `weightKg` (Number): *Weight*
+12. **Get Contents of URL**: `https://YOUR-WORKER/health`, *Method* POST, *Headers* `Authorization` = `Bearer YOUR-TOKEN`, *Request Body* JSON, set to the *Dictionary*.
+13. **Add to Variable**: *Contents of URL*, variable *Synced*.
+14. **End Repeat**.
+15. **Combine Text**: *Synced*, with *New Lines*. Then **Show Notification**: *Combined Text*.
 
-Run it once by hand. The notification should read like "Synced 23 Oct: 480 active kcal, 9,120 steps, 72.4 kg." Check that the weight matches Health.
+Run it once by hand. The notification should read like:
 
-A day with no weigh-in sends an empty weight, which Shortcuts turns into 0; the Worker takes 0 as no reading, so the activity still saves. Running it again later in the day replaces that day's activity. A weight sent again replaces the day's reading.
+> Synced 22 Oct: 610 active kcal, 11,240 steps, 72.5 kg.
+> Synced 23 Oct: 480 active kcal, 9,120 steps, 72.4 kg.
 
-**Workouts (optional).** Health's active energy already includes every workout, so the targets don't need them. To list them on Overview as well, add a `workouts` entry to the Dictionary: a list of dictionaries, each with `start` (the workout's start date as ISO 8601), `type` (text), `minutes` and `kcal` (numbers). The Worker adds each one once, matched by start and type, however often the Shortcut runs.
+Check that both days match Health.
 
-**Run it each morning.** Go to Automation → New Automation → *Alarm* → *Is Stopped* (your wake-up alarm) → *Run Immediately*, and run **Sync Health**. Turn off *Notify When Run*: the Shortcut's own notification says what it sent.
+Each run replaces both days' activity with Health's figures, so running it as often as you like never counts anything twice. A day with no weigh-in sends an empty weight, which Shortcuts turns into 0; the Worker takes 0 as no reading, so the activity still saves. A weight sent again replaces the day's reading with the same one.
+
+**Workouts (optional).** Health's active energy already includes every workout, so the targets don't need them. To list them on Overview as well, add a `workouts` entry to the Dictionary: a list of dictionaries for the workouts between *Start* and *End*, each with `start` (the workout's start date as ISO 8601), `type` (text), `minutes` and `kcal` (numbers). The Worker adds each one once, matched by start and type, however often the Shortcut runs.
+
+**Run it each morning.** Go to Automation → New Automation → *Alarm* → *Is Stopped* (your wake-up alarm) → *Run Immediately*, and run **Sync Health**. Turn off *Notify When Run*: the Shortcut's own notification says what it sent. This run finishes yesterday, with everything up to midnight, and picks up this morning's weigh-in.
 
 ## 2. Log a Sentence
 
