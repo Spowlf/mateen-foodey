@@ -61,8 +61,8 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 - **Meal slot**: defaults from the time of day (times editable in Settings) and can be changed on every entry.
 - **Food memory**: each log updates the food's usual grams.
 - **Copy**: a meal or a whole day to today.
-- **To check**: entries saved by a Shortcut or left unconfirmed. They count in today's totals as estimates ("~"), sit at the top of Log with their count on the tab, and each takes one tap to confirm or open.
-- **Cost guard**: every model call counts: parse, estimate, and the sentence Shortcut's (`POST /log`). The Worker refuses the call after 100 in a day: "Nothing changed: today's limit for sentence logging is used up. Search instead." The day is the Worker's own UTC date, not the phone's, because this is a spending cap rather than user data. The check and the count are one atomic D1 statement, so two calls at once can't both take the last one. A spending limit is also set in the Anthropic Console.
+- **To check**: entries left unconfirmed. They count in today's totals as estimates ("~"), sit at the top of Log with their count on the tab, and each takes one tap to confirm or open.
+- **Cost guard**: every model call counts, parse and estimate alike. The Worker refuses the call after 100 in a day: "Nothing changed: today's limit for sentence logging is used up. Search instead." The day is the Worker's own UTC date, not the phone's, because this is a spending cap rather than user data. The check and the count are one atomic D1 statement, so two calls at once can't both take the last one. A spending limit is also set in the Anthropic Console.
 
 ## Recipes
 
@@ -164,7 +164,7 @@ The review happens on Monday morning and covers the previous Monday to Sunday.
 - No route answers without a valid token.
 - PUT with mismatched URL and body ids is rejected and changes nothing.
 - Restore: malformed JSON, missing fields, duplicate ids, broken references and a failure partway through each leave the database unchanged.
-- Cost guard: the 101st model call in a day is refused; two simultaneous calls at a count of 99 let exactly one through; parse, estimate and `POST /log` all count; the count is keyed by the Worker's UTC date, whatever date the phone sends.
+- Cost guard: the 101st model call in a day is refused; two simultaneous calls at a count of 99 let exactly one through; parse and estimate both count; the count is keyed by the Worker's UTC date.
 - Weekly review and summary bounds: the previous Monday to Sunday, from a Monday timestamp in any offset.
 - The maintenance message counts days and weigh-ins correctly, showing each part only when needed.
 - "Mark N Days Complete" marks only unflagged unreviewed days in the reviewed week, and never today.

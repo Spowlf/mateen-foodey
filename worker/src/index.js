@@ -7,7 +7,6 @@
 //   GET    /search?q=             source foods: CoFID, Open Food Facts, USDA ({ results, unavailable })
 //   GET    /barcode/:code         a packaged food from Open Food Facts ({ food })
 //   POST   /parse                 sentence or photo logging, steps 1 to 3: { text } or { image: { mediaType, data } }
-//   POST   /log                   the sentence Shortcut: { text, timestamp }; replies with one line of text
 //   POST   /health                the Health Shortcut: { date, activeKcal, steps, weightKg, workouts }; text
 //   GET    /summary?date=         the weekly summary for the week before the one date falls in, as text
 //   POST   /summary               the same from the phone's timestamp: { timestamp }
@@ -22,10 +21,10 @@ import { createStore } from './store.js';
 import { HttpError, json, text, withCors, authorised, readJson, refuse } from './http.js';
 import { saveRow, saveBatch, deleteRow, ensureSeeded, settingsOf } from './rows.js';
 import { searchFoods, lookupBarcode, validBarcode } from './sources.js';
-import { parseFood, logSentence } from './parse.js';
+import { parseFood } from './parse.js';
 import { syncHealth } from './health.js';
 
-const TEXT_ROUTES = new Set(['log', 'health', 'summary']);
+const TEXT_ROUTES = new Set(['health', 'summary']);
 const STATES = new Set(['raw', 'cooked', 'asSold']);
 
 // Databases known to be seeded, so a warm Worker skips that query.
@@ -73,7 +72,6 @@ async function route(request, ctx) {
     return json(await lookupBarcode(ctx, id));
   }
   if (method === 'POST' && first === 'parse' && !id) return json(await parseFood(ctx, await readJson(request)));
-  if (method === 'POST' && first === 'log' && !id) return text(await logSentence(ctx, await readJson(request)));
   if (method === 'POST' && first === 'health' && !id) return text(await syncHealth(ctx, await readJson(request)));
   if ((method === 'GET' || method === 'POST') && first === 'summary' && !id) {
     let start;

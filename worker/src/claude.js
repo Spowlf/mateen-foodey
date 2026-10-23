@@ -1,7 +1,7 @@
 // Calls to Claude Haiku 5.5 (plain fetch, no SDK), behind the cost guard.
 //
-// The cost guard: every model call takes one of the day's 100 first: parse, estimate and the
-// sentence Shortcut's. The day is the Worker's own UTC date, not the phone's, because this is a
+// The cost guard: every model call takes one of the day's 100 first, parse and estimate alike.
+// The day is the Worker's own UTC date, not the phone's, because this is a
 // spending cap rather than user data. The check and the count are one statement, so two calls at
 // once can't both take the last one. With none left, no call is made.
 

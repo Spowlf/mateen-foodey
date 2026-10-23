@@ -2,17 +2,15 @@
 //   1. Parse: the text or photo becomes items with names and grams (no nutrition is taken from it).
 //   2. Match: each item against your foods, then the source cache, then Open Food Facts and USDA.
 //   3. Estimate: only items nothing matched, with the assumptions behind each estimate.
-// The phone shows the check sheet (step 4) and saves the entries (step 5). POST /log, the sentence
-// Shortcut, runs all five and saves the entries as To check.
+// The phone shows the check sheet (step 4) and saves the entries (step 5).
 
 import {
-  PARSE_SCHEMA, ESTIMATE_SCHEMA, cleanParse, cleanEstimate, portionBasisFor, rankFoods, normaliseName, sourceKey,
-  foodEntry, partsFromIso, mealForTime, MAX_GRAMS,
+  PARSE_SCHEMA, ESTIMATE_SCHEMA, cleanParse, cleanEstimate, portionBasisFor, rankFoods, normaliseName,
 } from '../../src/engine/index.js';
 import { askJson } from './claude.js';
 import { refuse, HttpError } from './http.js';
 import { searchCached, searchFoods, sourcesOn } from './sources.js';
-import { saveBatch, settingsOf } from './rows.js';
+import { settingsOf } from './rows.js';
 
 const MAX_TEXT = 1000;
 const MAX_IMAGE_BASE64 = 2_000_000;   // about 1.5 MB: a 1,024 px JPEG is far smaller
@@ -131,57 +129,4 @@ export async function parseFood(ctx, body, { origin = 'sentence' } = {}) {
     items: items.map((it, i) => ({ ...it, portionBasis: portionBasisFor({ gramsAssumed: it.gramsAssumed, origin }), ...matches[i] })),
     callsLeft,
   };
-}
-
-const lowerFirst = (s) => (/^[A-Z][a-z]/.test(s) ? s[0].toLowerCase() + s.slice(1) : s);
-const names = (list) => list.map(lowerFirst).join(', ');
-
-const items = (n) => `${n} ${n === 1 ? 'item' : 'items'}`;
-
-/** The Shortcut's reply, in the words it was sent: "3 items to check: eggs, toast, flat white." */
-function logReply(saved, missing) {
-  const lines = [`${items(saved.length)} to check: ${names(saved)}.`];
-  if (missing.length) lines.push(`Search for ${names(missing)} in the app.`);
-  return lines.join(' ');
-}
-
-/**
- * POST /log { text, timestamp }: the sentence Shortcut. Parses and matches as /parse does, then saves
- * the entries as To check on the phone's date, in the meal slot for the phone's time. Entry ids come
- * from the timestamp, so a retry adds nothing and makes no model call. Replies with one line of text.
- */
-export async function logSentence(ctx, body) {
-  const parts = partsFromIso(body.timestamp);
-  if (!parts || typeof body.text !== 'string') throw refuse('send the text and the phone’s timestamp.');
-  const base = `shortcut:${parts.at}`;
-  const already = await ctx.store.all('entries', 'id LIKE ? AND deletedAt IS NULL ORDER BY id', `${base}:%`);
-  if (already.length) return `Already saved: ${items(already.length)} to check.`;
-
-  const parsed = await parseFood(ctx, { text: body.text }, { origin: 'shortcut' });
-  const settings = await settingsOf(ctx.store);
-  const meal = mealForTime(parts.time, settings.mealTimes);
-  const own = new Map((await ctx.store.live('foods')).filter((f) => f.sourceId).map((f) => [sourceKey(f), f]));
-  const foods = new Map();
-  const entries = [];
-  const saved = [];
-  const missing = [];
-  parsed.items.forEach((it, i) => {
-    if (!it.food) { missing.push(it.name); return; }
-    let food = it.food;
-    if (!food.id) {
-      const key = food.source === 'estimate' ? null : sourceKey(food);
-      food = (key && (own.get(key) ?? foods.get(key))) ?? { ...food, id: crypto.randomUUID(), useCount: 0, userEdited: 0, deletedAt: null };
-      if (!own.has(key)) foods.set(key ?? food.id, food);
-    }
-    const guess = it.grams == null;
-    const grams = Math.min(MAX_GRAMS, it.grams ?? food.usualGrams ?? food.servings?.[0]?.grams ?? 100);
-    entries.push(foodEntry({
-      id: `${base}:${i}`, food, grams, date: parts.date, meal, portionBasis: guess ? 'guessed' : it.portionBasis,
-      origin: 'shortcut', status: 'toCheck', createdAt: parts.at,
-    }));
-    saved.push(it.name);
-  });
-  if (!entries.length) throw refuse(`nothing matched. Search for ${names(missing)} in the app.`, 422);
-  await saveBatch(ctx, { foods: [...foods.values()], entries });
-  return logReply(saved, missing);
 }

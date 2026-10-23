@@ -1,6 +1,6 @@
 # Shortcuts
 
-Three Shortcuts talk to the backend, plus a script you run once on the Mac. Each Shortcut sends one request to the Worker and shows its one-line reply as a notification.
+Two Shortcuts talk to the backend, plus a script you run once on the Mac. Each Shortcut sends one request to the Worker and shows its one-line reply as a notification.
 
 You need:
 
@@ -54,23 +54,7 @@ Each run replaces both days' activity with Health's figures, so running it as of
 
 **Run it each morning.** Go to Automation → New Automation → *Alarm* → *Is Stopped* (your wake-up alarm) → *Run Immediately*, and run **Sync Health**. Turn off *Notify When Run*: the Shortcut's own notification says what it sent. This run finishes yesterday, with everything up to midnight, and picks up this morning's weigh-in.
 
-## 2. Log a Sentence
-
-Logs what you ate from one dictated sentence, without opening the app. The entries arrive as **To check** on Log, with their portions marked as guessed where you didn't say them. Each one is confirmed with one tap.
-
-New Shortcut, **Log Food**:
-
-1. **Dictate Text** (or **Ask for Input**, to type instead). Rename the result *Sentence*.
-2. **Date**: Current Date. Then **Format Date**: *ISO 8601*, with *Include ISO 8601 Time* on. Rename the result *Time*. It looks like `2026-10-23T12:40:05+01:00`, and its offset picks the date and the meal.
-3. **Dictionary**: `text` (Text): *Sentence*; `timestamp` (Text): *Time*.
-4. **Get Contents of URL**: `https://YOUR-WORKER/log`, POST, the same header, JSON body the *Dictionary*.
-5. **Show Notification**: *Contents of URL*.
-
-The reply says what it read: "3 items to check: eggs, toast, flat white." Anything it couldn't find is named: "Search for haggis in the app." Running the same request twice adds nothing ("Already saved: …"). Each run uses one of the day's 100 model calls.
-
-Add it to the Action button, Back Tap (Settings → Accessibility → Touch → Back Tap) or Siri ("Log Food").
-
-## 3. Weekly Summary
+## 2. Weekly Summary
 
 A notification on Monday morning about the week just ended (Monday to Sunday). It gives your average on complete days against target, protein days, the trend's change, and anything left to check or review. The review itself is the card on Log.
 

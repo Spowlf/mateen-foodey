@@ -147,16 +147,15 @@ test('cost guard: two calls at once at a count of 99 let exactly one through', a
   assert.equal(w.modelCalls.length, 1);
 });
 
-test('cost guard: parse and estimate both count, and the day is the Worker’s UTC date whatever the phone sends', async () => {
-  // 23:30 in London on 23 Oct is 22:30 UTC: still the 23rd. 00:30 on the 24th in London is 23:30 UTC on the 23rd.
+test('cost guard: parse and estimate both count, and the day is the Worker’s UTC date', async () => {
+  // 00:30 on the 24th in London is 23:30 UTC on the 23rd.
   const w = makeWorker({ now: Date.UTC(2026, 9, 23, 23, 30), routes: EMPTY, model: model([item('Mystery stew')]) });
-  await w.call('POST', '/log', { body: { text: 'mystery stew', timestamp: '2026-10-24T00:30:00+01:00' } });
+  await w.call('POST', '/parse', { body: { text: 'mystery stew' } });
   assert.deepEqual(w.rows('parseCalls'), [{ id: '2026-10-23', calls: 2 }]);
-  assert.equal(w.rows('entries')[0].date, '2026-10-24');   // the entry keeps the phone's date
   w.now = Date.UTC(2026, 9, 24, 0, 5);
   await w.call('POST', '/parse', { body: { text: 'mystery stew' } });
-  // The new UTC day starts its own count. The saved estimate is one of your foods now, so it matches without another estimate.
-  assert.deepEqual(w.rows('parseCalls', "id = '2026-10-24'"), [{ id: '2026-10-24', calls: 1 }]);
+  // The new UTC day starts its own count.
+  assert.deepEqual(w.rows('parseCalls', "id = '2026-10-24'"), [{ id: '2026-10-24', calls: 2 }]);
 });
 
 test('cost guard: with the limit reached at the estimate step, matched items still come back', async () => {
@@ -167,41 +166,4 @@ test('cost guard: with the limit reached at the estimate step, matched items sti
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.items.map((i) => i.matchedFrom), ['cofid', null]);
   assert.equal(res.body.callsLeft, 0);
-});
-
-test('log: the sentence Shortcut saves To check entries on the phone’s date and meal, and a retry adds nothing', async () => {
-  const w = makeWorker({ routes: EMPTY, model: model([item('Eggs', { quantity: 2, grams: 120 }), item('Toast', { grams: null, gramsAssumed: true }), item('Flat white', { grams: 250 })]) });
-  seedCofid(w, [{ code: '12-001', name: 'Eggs, chicken, whole, raw', kcal: 131 }, { code: '11-001', name: 'Toast', kcal: 260 }]);
-  const body = { text: 'two eggs, toast, flat white', timestamp: '2026-10-23T23:30:00+01:00' };
-  const res = await w.call('POST', '/log', { body });
-  assert.equal(res.status, 200);
-  assert.equal(res.body, '3 items to check: eggs, toast, flat white.');
-  const entries = w.rows('entries').sort((a, b) => (a.id < b.id ? -1 : 1));
-  assert.deepEqual(entries.map((e) => [e.date, e.meal, e.status, e.origin]), Array(3).fill(['2026-10-23', 'snacks', 'toCheck', 'shortcut']));
-  assert.deepEqual(entries.map((e) => [e.grams, e.portionBasis, e.nutritionBasis]), [[120, 'typed', 'database'], [100, 'guessed', 'database'], [250, 'typed', 'estimate']]);
-  assert.equal(w.rows('foods').length, 3);
-  assert.ok(w.rows('foods').every((f) => f.useCount === 0));   // To check doesn't count yet
-
-  const calls = w.modelCalls.length;
-  const again = await w.call('POST', '/log', { body });
-  assert.equal(again.body, 'Already saved: 3 items to check.');
-  assert.equal(w.modelCalls.length, calls);
-  assert.equal(w.rows('entries').length, 3);
-});
-
-test('log: a source food you already have is reused, not added twice', async () => {
-  const w = makeWorker({ routes: EMPTY, model: model([item('Eggs', { searchTerm: 'eggs chicken' })]) });
-  seedCofid(w, [{ code: '12-001', name: 'Eggs, chicken, whole, raw', kcal: 131 }]);
-  await w.call('PUT', '/foods/f-mine', { body: food({ name: 'My eggs', source: 'cofid', sourceId: '12-001', state: 'raw' }) });
-  await w.call('POST', '/log', { body: { text: 'eggs', timestamp: '2026-10-23T08:00:00+01:00' } });
-  assert.equal(w.rows('foods').length, 1);
-  assert.equal(w.rows('entries')[0].foodId, 'f-mine');
-  assert.equal(w.rows('entries')[0].meal, 'breakfast');
-});
-
-test('log: a timestamp that can’t be read is refused before any model call', async () => {
-  const w = makeWorker({ model: model([]) });
-  const res = await w.call('POST', '/log', { body: { text: 'eggs', timestamp: 'today' } });
-  assert.equal(res.body, 'Nothing changed: send the text and the phone’s timestamp.');
-  assert.equal(w.modelCalls.length, 0);
 });
