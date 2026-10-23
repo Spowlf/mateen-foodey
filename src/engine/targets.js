@@ -53,3 +53,24 @@ export function dayTarget({ targets, date, settings = {}, exerciseKcal = 0 }) {
 export function acceptedTarget(current, { kcal, fromDate }) {
   return { ...current, id: fromDate, fromDate, kcal };
 }
+
+/** "to lose 0.5 kg a week", "to maintain your weight", "to gain 0.25 kg a week" */
+export function goalPhrase(goalRateG) {
+  if (!goalRateG) return 'to maintain your weight';
+  const kg = (Math.abs(goalRateG) / 1000).toLocaleString('en-GB');
+  return `to ${goalRateG < 0 ? 'lose' : 'gain'} ${kg} kg a week`;
+}
+
+/** How the current target is counted, as sentences. row is the targets row in force, or null. */
+export function targetText(row, { exerciseAddBackPct = DEFAULT_ADD_BACK_PCT, floorKcal = DEFAULT_FLOOR_KCAL } = {}) {
+  if (!row) return 'No daily target yet. Set one in Settings.';
+  const kcal = Math.max(floorKcal, row.kcal).toLocaleString('en-GB');
+  const floored = row.kcal < floorKcal ? ` It’s held at your floor of ${floorKcal.toLocaleString('en-GB')} kcal.` : '';
+  if (row.mode === 'adaptive') {
+    const change = dailyChangeKcal(row.goalRateG ?? 0);
+    const how = change ? `your maintenance estimate ${change < 0 ? 'less' : 'plus'} ${Math.abs(change).toLocaleString('en-GB')} kcal, ${goalPhrase(row.goalRateG)}` : `your maintenance estimate, ${goalPhrase(0)}`;
+    return `${kcal} kcal a day: ${how}. It changes only when you accept a new one in the weekly review.${floored}`;
+  }
+  const addBack = exerciseAddBackPct ? `, with ${exerciseAddBackPct}% of exercise added back` : '';
+  return `${kcal} kcal a day, a fixed target you set${addBack}.${floored}`;
+}

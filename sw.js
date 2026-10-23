@@ -39,6 +39,7 @@ const FILES = [
   'src/engine/match.js',
   'src/engine/meals.js',
   'src/engine/nutrition.js',
+  'src/engine/overview.js',
   'src/engine/parse.js',
   'src/engine/recipes.js',
   'src/engine/sources.js',
@@ -48,6 +49,7 @@ const FILES = [
   'src/engine/text.js',
   'src/engine/weight.js',
   'src/errors.js',
+  'src/ui/charts.js',
   'src/ui/check-sheet.js',
   'src/ui/dom.js',
   'src/ui/food-search.js',
@@ -59,11 +61,13 @@ const FILES = [
   'src/ui/later.js',
   'src/ui/lines-editor.js',
   'src/ui/log.js',
+  'src/ui/overview.js',
   'src/ui/photo.js',
   'src/ui/quick-add.js',
   'src/ui/recipe-sheets.js',
   'src/ui/saved-meal-sheet.js',
   'src/ui/settings.js',
+  'src/ui/weight.js',
 ];
 
 /** The URL with a query no cache has seen, so the CDN passes the request on to GitHub Pages. */

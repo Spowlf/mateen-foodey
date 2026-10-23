@@ -293,6 +293,69 @@ main {
 .line-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
 .line-foot .text-button { margin: 0 calc(-1 * var(--s3)) 0 0; }
 
+/* Overview and Weight: meters, the weight chart and its table. Marks carry colour; text stays ink. */
+
+.period-nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s2); text-align: center; }
+.period-nav .subhead { justify-content: center; }
+.meter-table { display: block; width: 100%; background: var(--surface); border-radius: 16px; overflow: hidden; }
+.meter-table tbody { display: block; }
+/* Each row: the name, its figure and its share on one line, the meter across the whole row under them. */
+.meter-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: 0 var(--s3); padding: var(--s3) var(--s4); }
+.meter-table tr + tr { border-top: 1px solid var(--line); }
+.meter-table th, .meter-table td { padding: 0; text-align: left; }
+.meter-table th { font-weight: 600; overflow-wrap: anywhere; }
+.meter-table td { text-align: right; white-space: nowrap; font-family: var(--font-num); font-weight: 700; }
+.meter-table .share { color: var(--ink-2); font-weight: 600; }
+.meter-table .meter-cell { grid-column: 1 / -1; }
+.meter-table .share:empty { display: none; }
+/* The track is a lighter step of the fill's own colour, so the whole bar reads as one meter. */
+.meter { display: block; height: 8px; margin-top: var(--s2); border-radius: 4px; background: var(--accent-soft); overflow: hidden; }
+.meter-fill { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+
+.chart-figure { margin: 0; padding: var(--s4); background: var(--surface); border-radius: 16px; display: grid; gap: var(--s3); }
+.chart-wrap { position: relative; }
+.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--ink-2); font: 600 var(--t-s) var(--font-num); font-variant-numeric: tabular-nums; }
+.chart .hit { fill: transparent; }
+/* The trend is the line in ink (SPEC); each weigh-in a dot with a ring in the surface colour, so it stays clear where it crosses the line. */
+.mark-trend { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.mark-reading { fill: var(--ink-2); stroke: var(--surface); stroke-width: 2; }
+.mark-trend-dot { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.crosshair { stroke: var(--ink-2); stroke-width: 1; }
+/* Dragging across the chart moves the crosshair; scrolling up and down still scrolls. */
+.weight-chart { cursor: crosshair; touch-action: pan-y; }
+.weight-chart:focus-visible { outline-offset: 4px; border-radius: 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); font-size: var(--t-s); color: var(--ink-2); font-weight: 600; }
+.legend > span { display: inline-flex; align-items: center; gap: var(--s2); }
+.line-key { display: inline-block; flex: none; width: 14px; height: 2px; border-radius: 1px; }
+.key-trend { background: var(--ink); }
+.dot-key { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ink-2); }
+.chart-tip {
+  position: absolute; top: 0; left: 0; width: max-content; max-width: 100%; pointer-events: none; white-space: nowrap;
+  padding: var(--s2) var(--s3); border-radius: 10px; background: var(--ink); color: var(--paper);
+  font-size: var(--t-s); box-shadow: var(--shadow-float);
+}
+.chart-tip .key-trend { background: var(--paper); }
+.chart-tip .dot-key { background: var(--line); }
+.tip-title { font-weight: 600; }
+.tip-row { display: flex; align-items: center; gap: var(--s2); }
+.tip-row strong { font: 700 var(--t-s) var(--font-num); font-variant-numeric: tabular-nums; }
+.table-view summary {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--s3); margin-left: calc(-1 * var(--s3));
+  border-radius: 10px; color: var(--accent); font-weight: 700; cursor: pointer; list-style: none;
+}
+.table-view summary::-webkit-details-marker { display: none; }
+.table-view summary:active { background: var(--accent-soft); color: var(--accent-press); }
+@media (hover: hover) { .table-view summary:hover { background: var(--accent-soft); color: var(--accent-press); } }
+.data-table { width: 100%; border-collapse: collapse; font-size: var(--t-s); }
+.data-table th, .data-table td { padding: var(--s2) 0; border-top: 1px solid var(--line); text-align: left; }
+.data-table thead th { border-top: 0; color: var(--ink-2); font-weight: 600; }
+/* Figures never wrap and keep a gap from the column before, so neighbouring weights can't run together. */
+.data-table td, .data-table thead th + th { text-align: right; padding-left: var(--s3); white-space: nowrap; }
+/* A link that acts like a text button (Sync Health opens Shortcuts). */
+a.text-button { display: inline-flex; align-items: center; text-decoration: none; }
+
 /* Fields */
 
 .field { display: grid; gap: var(--s1); }
@@ -422,7 +485,7 @@ main {
 @media (hover: hover) { .update:hover { background: var(--accent-press); } }
 
 /* Figures always line up. */
-.num, .list-amount, .key, .pad-display, .badge, .headline, .line-grams, .chip-sub {
+.num, .list-amount, .key, .pad-display, .badge, .headline, .line-grams, .chip-sub, .meter-table td, .data-table td {
   font-variant-numeric: lining-nums tabular-nums;
   font-feature-settings: "lnum" 1, "tnum" 1;
 }

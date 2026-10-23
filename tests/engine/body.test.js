@@ -60,3 +60,34 @@ test('weight: kg or st lb', () => {
   assert.equal(formatWeightChange(-312), '0.3 kg');
   assert.equal(formatWeightChange(318, 'stlb'), '0.7 lb');
 });
+
+test('weight: typed in kg or st lb, converted once to grams, with what to do when it can’t be used', async () => {
+  const { weightFromText, weightText } = await import('../../src/engine/weight.js');
+  assert.deepEqual(weightFromText({ kg: '72.4' }), { grams: 72_400 });
+  assert.deepEqual(weightFromText({ kg: '72,4' }), { grams: 72_400 });
+  assert.deepEqual(weightFromText({ unit: 'stlb', st: '11', lb: '6' }), { grams: 72_575 });
+  assert.deepEqual(weightFromText({ kg: '72.45' }), { error: 'Enter your weight in kg, like 72.4.' });
+  assert.deepEqual(weightFromText({ kg: '19' }), { error: 'Enter a weight from 20 to 400 kg.' });
+  assert.deepEqual(weightFromText({ unit: 'stlb', st: '11', lb: '14' }), { error: 'Enter stones and pounds, with pounds under 14.' });
+  assert.deepEqual(weightText(72_400), { kg: '72.4' });
+  assert.deepEqual(weightText(72_575, 'stlb'), { st: '11', lb: '6' });
+});
+
+test('weight chart: ranges, points from the first reading, a clean axis and the trend’s change', async () => {
+  const { rangeStart, weightPoints, weightScale, weightTick, trendChangeText, lastReading } = await import('../../src/engine/weight.js');
+  const weights = [weighIn('2026-10-01', 74_000), weighIn('2026-10-05', 73_000), weighIn('2026-10-20', 72_000)];
+  assert.equal(rangeStart('1m', '2026-10-23', weights), '2026-09-23');
+  assert.equal(rangeStart('3m', '2026-10-23', weights), '2026-07-24');
+  assert.equal(rangeStart('all', '2026-10-23', weights), '2026-10-01');
+  const points = weightPoints(weights, '2026-09-23', '2026-10-23');
+  assert.equal(points[0].date, '2026-10-01');      // nothing drawn before the first reading
+  assert.equal(points.length, 23);
+  assert.equal(points.filter((p) => p.readingGrams != null).length, 3);
+  assert.deepEqual(weightScale(71_200, 73_900), { min: 71_000, max: 74_000, ticks: [71_000, 72_000, 73_000, 74_000], step: 1 });
+  assert.deepEqual(weightScale(72_000, 72_000).ticks, [71_500, 72_000, 72_500]);   // one value still gets an axis
+  assert.equal(weightTick(72_500), '72.5');
+  assert.equal(weightTick(72_575, 'stlb'), '11 st 6');
+  assert.equal(trendChangeText(points), 'Down 0.3 kg since 1 Oct 2026.');
+  assert.equal(trendChangeText(points.slice(0, 1)), null);
+  assert.deepEqual(lastReading(weights, '2026-10-19'), { date: '2026-10-05', grams: 73_000 });
+});
