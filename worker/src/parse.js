@@ -26,6 +26,7 @@ For each item:
 - gramsAssumed: false when an amount, count or weight was given (or they said their usual portion); true when you guessed the portion.
 - state: raw, cooked or asSold, for how the food was weighed or eaten; unknown if you can't tell.
 - searchTerm: two to four words to find it in a UK food database, such as "egg fried" or "bread white toasted".
+- kcal: the calories they said this item had, such as 780 for "Popeyes 2 piece 780 kcal", as a whole number. null when they gave no figure: never estimate it.
 If an item is one of the person's own foods listed, use that food's exact name as the searchTerm, and its usual grams when they say "my usual" or give no amount.
 Split dishes into their parts only when the parts were named ("toast with butter" is toast and butter).`;
 
@@ -106,11 +107,12 @@ export async function parseFood(ctx, body, { origin = 'sentence' } = {}) {
   const intro = usual.length ? [{ type: 'text', text: `My own foods, most logged first:\n${ownList(usual)}` }] : [];
   const parsed = await askJson(ctx, { system: PARSE_SYSTEM, content: [...intro, ...blocks], schema: PARSE_SCHEMA });
   let callsLeft = parsed.callsLeft;
-  const items = cleanParse(parsed.data);
+  const items = cleanParse(parsed.data, text);
   if (!items.length) throw refuse('no food was found in that. Try naming each food.', 422);
 
+  // An item with the kcal you gave is still matched (a recipe or saved meal needs a food), but never estimated.
   const matches = await Promise.all(items.map((it) => matchItem(ctx, it, own, settings, on)));
-  const unmatched = items.map((it, i) => (matches[i].food ? null : i)).filter((i) => i != null);
+  const unmatched = items.map((it, i) => (matches[i].food || it.kcal ? null : i)).filter((i) => i != null);
   if (unmatched.length) {
     try {
       const est = await estimates(ctx, unmatched.map((i) => items[i]), text);

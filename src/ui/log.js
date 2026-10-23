@@ -202,7 +202,7 @@ export function renderLog(root, { repo }) {
 
   const toLines = (items) => items.map((it) => ({
     name: it.name, food: it.food, grams: it.grams, portionBasis: it.portionBasis, alternatives: it.alternatives ?? [],
-    state: it.state, searchTerm: it.searchTerm, matchedFrom: it.matchedFrom,
+    state: it.state, searchTerm: it.searchTerm, matchedFrom: it.matchedFrom, kcal: it.kcal ?? null,
   }));
 
   async function parse(body, origin) {

@@ -2,7 +2,7 @@
 
 import { addDays, today, nowTime, formatDay } from './dates.js';
 import { amountsFor, kcalOf, gramsOf, formatKcal, formatGrams } from './nutrition.js';
-import { foodEntry, isLive, dayTotal } from './entries.js';
+import { foodEntry, quickEntry, typedAmounts, isLive, dayTotal } from './entries.js';
 import { hasLeft, batchEntry } from './recipes.js';
 import { MAX_GRAMS } from './parse.js';
 import { adoptFoods } from './foods.js';
@@ -61,11 +61,15 @@ export const toCheckEntries = (entries) => entries
   .filter((e) => isLive(e) && e.status === 'toCheck')
   .sort((a, b) => (b.date < a.date ? -1 : b.date > a.date ? 1 : (b.createdAt ?? 0) - (a.createdAt ?? 0)));
 
-/** A line's nutrition for its grams, or null until it has a food and grams. */
-export const lineAmounts = (line) => (line.food && line.grams > 0 ? amountsFor(line.food.per100g, line.grams, line.food) : null);
+/** A line with the kcal the sentence gave ("780 kcal"): logged as that, with no food or grams. */
+export const kcalLine = (line) => line.kcal > 0;
 
-/** Is a line's nutrition an estimate in any way: estimated food or guessed portion. */
-export const lineEstimated = (line) => line.food?.source === 'estimate' || line.portionBasis === 'guessed';
+/** A line's nutrition: the kcal you gave, or its food for its grams, or null until it has both. */
+export const lineAmounts = (line) => (kcalLine(line) ? typedAmounts({ kcal: line.kcal })
+  : line.food && line.grams > 0 ? amountsFor(line.food.per100g, line.grams, line.food) : null);
+
+/** Is a line's nutrition an estimate in any way: estimated food or guessed portion. kcal you gave isn't. */
+export const lineEstimated = (line) => !kcalLine(line) && (line.food?.source === 'estimate' || line.portionBasis === 'guessed');
 
 /** "312 kcal, 20 g protein" for an amount, with "~" when estimated. Unknown parts are left out. */
 export function figuresText(amounts, { estimated = false } = {}) {
@@ -82,13 +86,15 @@ export function figuresText(amounts, { estimated = false } = {}) {
 
 /**
  * The check sheet's button: "Log 3 Items" (or "Add 3 Items" with verb 'add'), or what's missing
- * ("Pick a Food for Haggis", "Enter the Grams").
+ * ("Pick a Food for Haggis", "Enter the Grams"). A line with the kcal you gave needs neither when
+ * logging; a recipe or saved meal ('add') needs a food and grams for every line.
  */
 export function checkButton(lines, verb = 'log') {
   if (!lines.length) return { ready: false, label: 'Add a Food' };
-  const unmatched = lines.find((l) => !l.food);
+  const needFood = lines.filter((l) => verb !== 'log' || !kcalLine(l));
+  const unmatched = needFood.find((l) => !l.food);
   if (unmatched) return { ready: false, label: titleCase(`pick a food for ${unmatched.name}`) };
-  if (lines.some((l) => !(Number.isInteger(l.grams) && l.grams > 0 && l.grams <= MAX_GRAMS))) return { ready: false, label: 'Enter the Grams' };
+  if (needFood.some((l) => !(Number.isInteger(l.grams) && l.grams > 0 && l.grams <= MAX_GRAMS))) return { ready: false, label: 'Enter the Grams' };
   return { ready: true, label: titleCase(`${verb} ${lines.length} ${lines.length === 1 ? 'item' : 'items'}`) };
 }
 
@@ -96,11 +102,13 @@ export function checkButton(lines, verb = 'log') {
  * What logging lines saves: { foods, entries }. Each line's food becomes one of yours (see
  * adoptFoods), and each entry copies its food's name, nutrition and assumptions. newId() gives fresh
  * ids. savedMealId marks entries logged from a saved meal. A recipe line ({ recipe, batch, grams })
- * is served from its batch, as batchEntry does.
+ * is served from its batch, as batchEntry does. A line with the kcal you gave is saved as a quick
+ * add on its own name, and adds no food.
  */
 export function logLines({ lines, foods, date, meal, origin = 'manual', newId, now, savedMealId = null }) {
-  const adopted = adoptFoods({ lines, foods, newId });
+  const adopted = adoptFoods({ lines: lines.map((l) => (kcalLine(l) ? { ...l, food: null } : l)), foods, newId });
   const entries = adopted.lines.map((line) => {
+    if (kcalLine(line)) return { ...quickEntry({ id: newId(), date, meal, kcal: line.kcal, name: line.name, createdAt: now }), origin, savedMealId };
     if (!line.recipe) {
       return foodEntry({
         id: newId(), food: line.food, grams: line.grams, date, meal, portionBasis: line.portionBasis ?? 'typed', origin, createdAt: now, savedMealId,

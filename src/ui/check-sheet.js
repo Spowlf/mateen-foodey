@@ -1,6 +1,7 @@
 // The check sheet (step 4 of sentence and photo logging): each item with its match (tap to swap),
 // its grams (tap for the number pad), kcal and macros, Remove, and what's uncertain about it:
-// "~ Estimated nutrition", "~ Portion guessed", or both, with the assumptions underneath.
+// "~ Estimated nutrition", "~ Portion guessed", or both, with the assumptions underneath. An item
+// the sentence gave kcal for ("780 kcal") shows just that, with Remove.
 // The button reads "Log 3 Items", or says what's missing.
 
 import { h, fill, openSheet, icon } from './dom.js';
@@ -8,7 +9,7 @@ import { foodSub, keepUnits } from './format.js';
 import { openGramsSheet } from './grams-sheet.js';
 import { createFoodSearch } from './food-search.js';
 import {
-  checkButton, lineAmounts, lineEstimated, figuresText, uncertainty, withGrams, sumAmounts, unknownLines, formatGrams,
+  checkButton, lineAmounts, lineEstimated, kcalLine, figuresText, uncertainty, withGrams, sumAmounts, unknownLines, formatGrams,
 } from '../engine/index.js';
 
 /** Picks another food for a line: the parse's alternatives first, then a search. */
@@ -47,7 +48,20 @@ export function openCheckSheet({ repo, lines: start, onChange, onLog, verb = 'lo
   const update = (next) => { lines = next; onChange(lines); render(); };
   const setLine = (i, line) => update(lines.map((l, k) => (k === i ? line : l)));
 
+  const remove = (i) => h('button', { type: 'button', class: 'text-button', onclick: () => update(lines.filter((_, k) => k !== i)) }, 'Remove');
+
+  // The kcal the sentence gave ("780 kcal"): logged as that, like a quick add, with no food or grams.
+  const kcalCard = (line, i) => h('article', { class: 'line', 'aria-label': line.name },
+    h('div', { class: 'line-head' },
+      h('div', { class: 'list-main' },
+        h('h3', { class: 'list-title' }, line.name),
+        h('span', { class: 'list-sub' }, 'The kcal you gave'))),
+    h('div', { class: 'line-foot' },
+      h('span', { class: 'reason' }, keepUnits(figuresText(lineAmounts(line)))),
+      remove(i)));
+
   function lineCard(line, i) {
+    if (verb === 'log' && kcalLine(line)) return kcalCard(line, i);
     const amounts = lineAmounts(line);
     const estimated = lineEstimated(line);
     const tags = uncertainty(line);
@@ -69,7 +83,7 @@ export function openCheckSheet({ repo, lines: start, onChange, onLog, verb = 'lo
       line.food?.assumptions && h('p', { class: 'reason' }, line.food.assumptions),
       h('div', { class: 'line-foot' },
         h('span', { class: 'reason' }, amounts ? keepUnits(figuresText(amounts, { estimated })) : line.food ? 'Enter the grams.' : 'Nothing matched. Pick a food.'),
-        h('button', { type: 'button', class: 'text-button', onclick: () => update(lines.filter((_, k) => k !== i)) }, 'Remove')));
+        remove(i)));
   }
 
   function render() {

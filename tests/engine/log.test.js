@@ -56,6 +56,26 @@ test('check sheet: figures for a line, with "~" when it’s estimated, and unkno
   assert.equal(lineAmounts({ food: OATS, grams: null }), null);
 });
 
+test('check sheet: a line with the kcal you gave needs no food or grams, and isn’t an estimate', () => {
+  const line = { name: 'Popeyes 2 piece', food: null, grams: null, kcal: 780, portionBasis: 'guessed' };
+  assert.deepEqual(checkButton([line]), { ready: true, label: 'Log 1 Item' });
+  assert.equal(lineEstimated(line), false);
+  assert.equal(figuresText(lineAmounts(line)), '780 kcal');
+  assert.equal(checkButton([line], 'add').ready, false);   // a recipe or saved meal needs foods and grams
+});
+
+test('log lines: a line with the kcal you gave is saved like a quick add, on its own name', () => {
+  let n = 0;
+  const lines = [{ name: 'Popeyes 2 piece', food: null, grams: null, kcal: 780, portionBasis: 'guessed' }, { name: 'Oats', food: own(OATS), grams: 40, portionBasis: 'typed' }];
+  const { foods, entries } = logLines({ lines, foods: [], date: '2026-10-23', meal: 'dinner', origin: 'sentence', newId: () => `id${++n}`, now: 7 });
+  assert.equal(foods.length, 0);
+  const [e] = entries;
+  assert.deepEqual([e.name, e.foodId, e.grams, e.nutritionBasis, e.portionBasis, e.origin, e.status, e.meal], ['Popeyes 2 piece', null, null, 'quick', null, 'sentence', 'logged', 'dinner']);
+  assert.equal(e.nutrition.kcalMilli, 780_000);
+  assert.equal(e.nutrition.proteinUg, null);
+  assert.equal(entries[1].foodId, 'f-oats');
+});
+
 test('log lines: your food is used, a source food you have is reused, the rest become new foods', () => {
   let n = 0;
   const newId = () => `id${++n}`;

@@ -60,7 +60,7 @@ test('parse: no nutrition is taken from the parse step, unknown fields are dropp
   assert.equal(egg.grams, null);
   assert.equal(toast.grams, null);
   assert.equal(butter.grams, 10);
-  assert.ok(!('kcal' in egg) && !('nutrition' in egg));
+  assert.ok(egg.kcal === null && !('nutrition' in egg));   // the sentence gave no kcal
   assert.equal(egg.food.per100g.kcalTenths, 1470);   // from CoFID, not the parse
   assert.equal(egg.state, null);                       // 'unknown' becomes null
   assert.equal(w.modelCalls.length, 1);                // everything matched: no estimate call
@@ -156,6 +156,15 @@ test('cost guard: parse and estimate both count, and the day is the Worker’s U
   await w.call('POST', '/parse', { body: { text: 'mystery stew' } });
   // The new UTC day starts its own count.
   assert.deepEqual(w.rows('parseCalls', "id = '2026-10-24'"), [{ id: '2026-10-24', calls: 2 }]);
+});
+
+test('parse: an item with the kcal you gave keeps it and is never estimated', async () => {
+  const w = makeWorker({ routes: EMPTY, model: model([item('Popeyes 2 piece', { kcal: 780 }), item('Mystery stew', { kcal: 300 })]) });
+  const res = await w.call('POST', '/parse', { body: { text: 'Popeyes 2 piece 780 kcal, mystery stew' } });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.items.map((i) => [i.name, i.kcal, i.matchedFrom]), [['Popeyes 2 piece', 780, null], ['Mystery stew', null, 'estimate']]);
+  assert.equal(w.modelCalls.length, 2);
+  assert.equal(w.modelCalls[1].body.messages[0].content[0].text.split('\nThey wrote')[0], 'Items:\n1. Mystery stew, 100 g');
 });
 
 test('cost guard: with the limit reached at the estimate step, matched items still come back', async () => {

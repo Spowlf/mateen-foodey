@@ -1,6 +1,7 @@
 // Sentence and photo logging: checking what the model sends back, and what's uncertain about each line.
-// The parse step gives names and amounts only; nutrition from it is never accepted. The estimate
-// step gives per-100 g nutrition for foods nothing matched, with the assumptions behind it.
+// The parse step gives names and amounts only; nutrition from it is never accepted, except kcal the
+// sentence itself gives ("780 kcal"). The estimate step gives per-100 g nutrition for foods nothing
+// matched, with the assumptions behind it.
 
 export const MAX_GRAMS = 5000;
 const STATES = new Set(['raw', 'cooked', 'asSold']);
@@ -25,7 +26,7 @@ export const PARSE_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['name', 'quantity', 'unit', 'grams', 'gramsAssumed', 'state', 'searchTerm'],
+        required: ['name', 'quantity', 'unit', 'grams', 'gramsAssumed', 'state', 'searchTerm', 'kcal'],
         properties: {
           name: { type: 'string' },
           quantity: { type: ['number', 'null'] },
@@ -34,18 +35,30 @@ export const PARSE_SCHEMA = {
           gramsAssumed: { type: 'boolean' },
           state: { type: 'string', enum: ['raw', 'cooked', 'asSold', 'unknown'] },
           searchTerm: { type: 'string' },
+          kcal: { type: ['integer', 'null'] },
         },
       },
     },
   },
 };
 
+const MAX_STATED_KCAL = 10000;
+
+/** The kcal figures a sentence gives as calories: "780 kcal", "1,050 calories", "450cal". */
+function statedKcal(sentence) {
+  if (typeof sentence !== 'string') return new Set();
+  return new Set([...sentence.matchAll(/(\d[\d,]*)\s*(?:k?cals?|calories)\b/gi)].map((m) => Number(m[1].replace(/,/g, ''))));
+}
+
 /**
  * The parse step's items, checked: only the known fields are kept (nutrition and anything else
  * dropped), a nameless item is dropped, and grams outside 1–5,000 become null for you to enter.
+ * kcal is kept only when the sentence gives that same figure as calories, so the model
+ * can't add a guess of its own; a photo (no text) never has it.
  */
-export function cleanParse(data) {
+export function cleanParse(data, sentence = null) {
   const items = Array.isArray(data?.items) ? data.items : [];
+  const stated = statedKcal(sentence);
   return items.flatMap((it) => {
     const name = text(it?.name);
     if (!name) return [];
@@ -58,6 +71,7 @@ export function cleanParse(data) {
       gramsAssumed: it.gramsAssumed === true,
       state: STATES.has(it.state) ? it.state : null,
       searchTerm: text(it.searchTerm) ?? name,
+      kcal: Number.isInteger(it.kcal) && it.kcal > 0 && it.kcal <= MAX_STATED_KCAL && stated.has(it.kcal) ? it.kcal : null,
     }];
   });
 }
@@ -152,9 +166,10 @@ export function checkLine(item, food, { origin = 'sentence' } = {}) {
 /** Editing a line's grams makes its portion typed. */
 export const withGrams = (line, grams) => ({ ...line, grams, portionBasis: 'typed' });
 
-/** What's uncertain about a line, for the check sheet. */
+/** What's uncertain about a line, for the check sheet. kcal you gave is never uncertain. */
 export function uncertainty(line) {
   const out = [];
+  if (line.kcal) return out;
   if (line.food?.source === 'estimate') out.push('~ Estimated nutrition');
   if (line.portionBasis === 'guessed') out.push('~ Portion guessed');
   return out;

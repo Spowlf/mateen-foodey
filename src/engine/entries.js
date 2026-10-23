@@ -37,12 +37,21 @@ export function servingEntry({ serving, count = 1, ...rest }) {
   return foodEntry({ ...rest, grams: Math.round(serving.grams * count), portionBasis: 'serving' });
 }
 
+/** Typed kcal, with optional protein, carbs and fat in whole grams, as amounts. What isn't typed is unknown. */
+export function typedAmounts({ kcal, proteinG = null, carbsG = null, fatG = null }) {
+  const g = (v) => (v == null ? null : v * 1_000_000);
+  return {
+    kcalMilli: kcal * 1000, proteinUg: g(proteinG), carbsUg: g(carbsG), fatUg: g(fatG),
+    fibreUg: null, sugarsUg: null, saltUg: null, partial: [], carbsIncludeFibre: false,
+  };
+}
+
 /**
- * Quick add: typed kcal, with optional protein, carbs and fat in whole grams. What isn't typed is unknown.
+ * Quick add: typed kcal, with optional protein, carbs and fat in whole grams. What isn't typed is
+ * unknown. A sentence that gives an item's kcal ("780 kcal") is saved the same way (see logLines).
  */
 export function quickEntry({ id, date, meal, kcal, proteinG = null, carbsG = null, fatG = null, name = null, createdAt }) {
   if (!Number.isInteger(kcal) || kcal <= 0) throw new RangeError('kcal must be a whole number above zero');
-  const g = (v) => (v == null ? null : v * 1_000_000);
   return {
     id,
     date,
@@ -52,10 +61,7 @@ export function quickEntry({ id, date, meal, kcal, proteinG = null, carbsG = nul
     savedMealId: null,
     name: name?.trim() || 'Quick add',
     grams: null,
-    nutrition: {
-      kcalMilli: kcal * 1000, proteinUg: g(proteinG), carbsUg: g(carbsG), fatUg: g(fatG),
-      fibreUg: null, sugarsUg: null, saltUg: null, partial: [], carbsIncludeFibre: false,
-    },
+    nutrition: typedAmounts({ kcal, proteinG, carbsG, fatG }),
     nutritionBasis: 'quick',
     portionBasis: null,
     assumptions: null,

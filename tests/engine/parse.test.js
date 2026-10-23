@@ -16,12 +16,26 @@ test('parse validation: grams above zero and at most 5,000; unknown fields and n
     ],
   });
   assert.deepEqual(items.map((i) => i.name), ['eggs', 'toast', 'flat white', 'butter', 'rice']);
-  assert.deepEqual(Object.keys(items[0]).sort(), ['grams', 'gramsAssumed', 'name', 'quantity', 'searchTerm', 'state', 'unit']);
+  assert.deepEqual(Object.keys(items[0]).sort(), ['grams', 'gramsAssumed', 'kcal', 'name', 'quantity', 'searchTerm', 'state', 'unit']);
   assert.deepEqual(items.map((i) => i.grams), [120, null, null, 10, 5000]);
+  assert.equal(items[0].kcal, null);   // no sentence said 180 kcal
   assert.equal(items[3].state, null);
   assert.equal(items[3].searchTerm, 'butter');
   assert.deepEqual(cleanParse({ nothing: true }), []);
   assert.deepEqual(cleanParse(null), []);
+});
+
+test('parse validation: kcal is kept only when the sentence gives that figure as calories', () => {
+  const item = (name, kcal) => ({ name, quantity: null, unit: null, grams: null, gramsAssumed: true, state: 'asSold', searchTerm: name, kcal });
+  const kcal = (text, ...items) => cleanParse({ items }, text).map((i) => i.kcal);
+  assert.deepEqual(kcal('Popeyes 2 piece 780 kcal, diet coke', item('Popeyes 2 piece', 780), item('Diet coke', 1)), [780, null]);
+  assert.deepEqual(kcal('burger 1,050 calories', item('Burger', 1050)), [1050]);
+  assert.deepEqual(kcal('wrap, 450cal', item('Wrap', 450)), [450]);
+  assert.deepEqual(kcal('a 450 kcal wrap', item('Wrap', 450.4)), [null]);   // not a whole number
+  assert.deepEqual(kcal('2 piece chicken', item('Chicken', 2)), [null]);   // a count, not calories
+  assert.deepEqual(kcal('chicken and chips', item('Chicken', 700)), [null]);   // a guess
+  assert.deepEqual(kcal('0 kcal jelly', item('Jelly', 0)), [null]);
+  assert.deepEqual(kcal(null, item('Wrap', 450)), [null]);   // a photo gives no figures
 });
 
 test('estimates: only for items nothing matched', () => {

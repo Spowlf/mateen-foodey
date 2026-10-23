@@ -49,7 +49,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 - **Headline** at the top of Log: "~1,240 kcal left today." or "180 kcal over today." in plain ink, never red. Under it: "92 g protein to go." or "Protein target reached." The headline, protein, Log a Saved Meal and the add field come before anything else on the screen.
 - **Saved meals**: "Log a Saved Meal" opens the list of saved meals; a tap logs one to the chosen meal slot, with Undo. A saved meal's foods can be chosen from My Foods or Recipes as well as searched or typed. A recipe offers a third, a quarter or a fifth of its latest batch, or typed grams.
 - **Sentence logging** ("two eggs, toast with butter, flat white") runs in five steps:
-  1. **Parse**: `POST /parse` sends the text to Claude Haiku 5.5 (`claude-haiku-5-5`) with the 30 most-logged foods, so "my usual porridge" resolves. A JSON schema returns `[{ name, quantity, unit, grams, gramsAssumed, state, searchTerm }]`; `gramsAssumed` is true when the sentence gave no amount. No nutrition comes from this step.
+  1. **Parse**: `POST /parse` sends the text to Claude Haiku 5.5 (`claude-haiku-5-5`) with the 30 most-logged foods, so "my usual porridge" resolves. A JSON schema returns `[{ name, quantity, unit, grams, gramsAssumed, state, searchTerm }]`; `gramsAssumed` is true when the sentence gave no amount. No nutrition comes from this step, except kcal the sentence itself gives for an item ("Popeyes 2 piece 780 kcal"): it's kept only when that figure is in the text as calories, the item is never estimated, and it's logged like a quick add on its own name (no "~", macros unknown).
   2. **Match**: each item against the user's foods, then the cache, then Open Food Facts, CoFID and USDA.
   3. **Estimate**: only for items with no suitable match, a second call returns per-100 g nutrition and the assumptions behind it ("Assumed oats made with 200 ml semi-skimmed milk and 1 tsp honey."). Saved as an `estimate` food.
   4. **Review**: the check sheet shows each item with its match (tap to swap), grams on a number pad, kcal and macros, Remove, and what's uncertain: "~ Estimated nutrition", "~ Portion guessed", or both, with any assumptions underneath. Editing the grams makes the portion `typed`. The button reads "Log 3 Items".
@@ -146,7 +146,7 @@ The review happens on Monday morning and covers the previous Monday to Sunday.
 - Salt from sodium × 2.5.
 - Missing nutrients stay unknown through scaling, totals, recipes and display; never zero.
 - Entries keep their copied nutrition and assumptions when the food or recipe changes.
-- Parse validation: grams above zero and at most 5,000; unknown fields dropped; no nutrition accepted from the parse step.
+- Parse validation: grams above zero and at most 5,000; unknown fields dropped; no nutrition accepted from the parse step, except kcal the sentence gives as calories.
 - Estimates only for unmatched items; `nutritionBasis` and `portionBasis` set correctly, including a guessed portion becoming typed when edited.
 - Recipes: nutrition per gram from totals and finished weight; finished weight defaulting to the sum; pot subtracted; portions with the remainder in the last; estimates and unknowns carried into the batch; grams left never below zero.
 - Net MET kcal, (MET − 1) × kg × hours; manual workouts not added on days with Health active energy.
