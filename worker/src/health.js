@@ -18,8 +18,9 @@ export async function syncHealth(ctx, body) {
   const { date } = body;
   const activeKcal = whole(body.activeKcal);
   const steps = whole(body.steps);
-  const kg = typeof body.weightKg === 'number' ? body.weightKg : Number(String(body.weightKg ?? '').replace(',', '.'));
-  const weightGrams = body.weightKg != null && body.weightKg !== '' && Number.isFinite(kg) ? Math.round(kg * 1000) : null;
+  // A Shortcut sends an empty Number field as 0, so 0 (like blank) means no weigh-in that day.
+  const kg = typeof body.weightKg === 'number' ? body.weightKg : Number(String(body.weightKg ?? '').trim().replace(',', '.') || 0);
+  const weightGrams = Number.isFinite(kg) && kg !== 0 ? Math.round(kg * 1000) : null;
   if (weightGrams != null && (weightGrams < 20_000 || weightGrams > 400_000)) throw refuse('send a weight from 20 to 400 kg.');
   if (body.workouts != null && !Array.isArray(body.workouts)) throw refuse('send the workouts as a list.');
 

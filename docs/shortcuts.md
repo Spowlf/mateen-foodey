@@ -33,7 +33,7 @@ In the Shortcuts app, make a new Shortcut called **Sync Health** with these acti
 
 Run it once by hand. The notification should read like "Synced 23 Oct: 480 active kcal, 9,120 steps, 72.4 kg." Check that the weight matches Health.
 
-A day with no weigh-in sends no weight; that's fine. Running it again later in the day replaces that day's activity. A weight sent again replaces the day's reading.
+A day with no weigh-in sends an empty weight, which Shortcuts turns into 0; the Worker takes 0 as no reading, so the activity still saves. Running it again later in the day replaces that day's activity. A weight sent again replaces the day's reading.
 
 **Workouts (optional).** Health's active energy already includes every workout, so the targets don't need them. To list them on Overview as well, add a `workouts` entry to the Dictionary: a list of dictionaries, each with `start` (the workout's start date as ISO 8601), `type` (text), `minutes` and `kcal` (numbers). The Worker adds each one once, matched by start and type, however often the Shortcut runs.
 

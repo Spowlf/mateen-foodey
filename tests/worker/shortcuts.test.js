@@ -29,6 +29,17 @@ test('health: a run with no weight keeps the day’s reading; a field left out i
   assert.equal(w.rows('workouts').length, 1);
 });
 
+test('health: a weight of 0, as a Shortcut sends on a day with no weigh-in, is no reading', async () => {
+  const w = makeWorker();
+  await w.call('POST', '/health', { body: health() });
+  for (const weightKg of [0, '0', ' ']) {
+    const res = await w.call('POST', '/health', { body: health({ weightKg, workouts: [] }) });
+    assert.equal(res.status, 200);
+    assert.equal(res.body, 'Synced 12 Oct: 480 active kcal, 9,120 steps.');
+  }
+  assert.deepEqual(w.rows('weights').map((x) => [x.id, x.grams]), [['2026-10-12', 72400]]);
+});
+
 test('health: the weight follows the units setting, and bad figures are refused with nothing changed', async () => {
   const w = makeWorker();
   await w.call('PUT', '/settings/weightUnit', { body: { value: 'stlb' } });
