@@ -111,7 +111,7 @@ export const STORES = {
  * Settings rows ({ id, value }):
  *   floorKcal           1500
  *   exerciseAddBackPct  50 (fixed mode)
- *   mealTimes           { breakfast, lunch, dinner, snacks } as 'HH:MM' (see src/engine/meals.js)
+ *   mealTimes           { breakfast, lunch, dinner } as 'HH:MM'; snacks have no time (see src/engine/meals.js)
  *   weightUnit          'kg' | 'stlb'
  *   sources             { off, cofid, usda } each true or false
  */

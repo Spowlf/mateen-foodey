@@ -1,7 +1,7 @@
 // Settings: their defaults and what each may hold. The Worker checks every save with these, and
 // Settings on the phone checks them before sending, so both say the same thing.
 
-import { MEALS, DEFAULT_MEAL_TIMES } from './meals.js';
+import { TIMED_MEALS, DEFAULT_MEAL_TIMES } from './meals.js';
 import { DEFAULT_FLOOR_KCAL, DEFAULT_ADD_BACK_PCT, GOAL_RATES_G, adaptiveKcal } from './targets.js';
 
 const int = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
@@ -21,7 +21,7 @@ const CHECKS = {
   floorKcal: (v) => (int(v, 800, 4000) ? null : 'enter a floor from 800 to 4,000 kcal.'),
   exerciseAddBackPct: (v) => (int(v, 0, 100) ? null : 'enter a share from 0 to 100%.'),
   mealTimes: (v) => {
-    const times = MEALS.map((m) => v?.[m]);
+    const times = TIMED_MEALS.map((m) => v?.[m]);
     if (!times.every(validTime)) return 'enter each meal time as hours and minutes.';
     return times.every((t, i) => i === 0 || t > times[i - 1]) ? null : 'put the meal times in order through the day.';
   },

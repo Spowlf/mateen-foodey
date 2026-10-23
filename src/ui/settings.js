@@ -8,7 +8,7 @@ import { exportBackup, exportCsv, importBackup } from './backup.js';
 import { ApiError } from '../errors.js';
 import {
   today, targetRowFor, targetFromSettings, settingProblem, typedWhole, maintenanceEstimate, adaptiveKcal, dailyChangeKcal,
-  formatKcal, syncedPhrase, goalPhrase, MEALS, mealName, DEFAULT_SETTINGS, GOAL_RATES_G, DEFAULT_FLOOR_KCAL,
+  formatKcal, syncedPhrase, goalPhrase, TIMED_MEALS, mealName, DEFAULT_SETTINGS, GOAL_RATES_G, DEFAULT_FLOOR_KCAL,
 } from '../engine/index.js';
 
 const GOALS = { '-750': 'Lose 0.75 kg', '-500': 'Lose 0.5 kg', '-250': 'Lose 0.25 kg', 0: 'Maintain', 250: 'Gain 0.25 kg' };
@@ -119,14 +119,14 @@ export function renderSettings(root, { repo, onConnected }) {
 
   function mealsSection() {
     const times = { ...DEFAULT_SETTINGS.mealTimes, ...setting('mealTimes') };
-    const inputs = Object.fromEntries(MEALS.map((m) => [m, h('input', { class: 'input', type: 'time', value: times[m] })]));
+    const inputs = Object.fromEntries(TIMED_MEALS.map((m) => [m, h('input', { class: 'input', type: 'time', value: times[m] })]));
     for (const input of Object.values(inputs)) {
-      input.addEventListener('change', () => saveSetting('mealTimes', Object.fromEntries(MEALS.map((m) => [m, inputs[m].value])), 'Meal times saved.'));
+      input.addEventListener('change', () => saveSetting('mealTimes', Object.fromEntries(TIMED_MEALS.map((m) => [m, inputs[m].value])), 'Meal times saved.'));
     }
     return h('section', { class: 'section', 'aria-label': 'Meal Times' },
       h('h2', { class: 'subhead' }, 'Meal Times'),
-      h('div', { class: 'row-2' }, MEALS.map((m) => field(`${mealName(m)} From`, inputs[m]))),
-      h('p', { class: 'reason' }, 'Log picks the meal from the time. You can change it on every entry.'));
+      h('div', { class: 'row-3' }, TIMED_MEALS.map((m) => field(`${mealName(m)} From`, inputs[m]))),
+      h('p', { class: 'reason' }, 'Log picks breakfast, lunch or dinner from the time. Snacks you pick yourself, any time of day. You can change the meal on every entry.'));
   }
 
   function unitsSection() {

@@ -58,7 +58,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 - **Search**: one field; your foods first, then the sources. The phone searches after a pause in typing, not on every keystroke, and the Worker caches recent queries as well as the foods they found, to keep requests to Open Food Facts and USDA modest.
 - **Barcode**: typed or scanned with the camera, looked up on Open Food Facts. Scanning reads EAN-13, EAN-8, UPC-A and UPC-E with the phone's own BarcodeDetector where there is one, else ZXing, vendored into `vendor/` and served from our own origin.
 - **Quick add**: kcal, with optional macros and name.
-- **Meal slot**: defaults from the time of day (times editable in Settings) and can be changed on every entry.
+- **Meal slot**: breakfast, lunch or dinner defaults from the time of day (times editable in Settings); snacks are picked by hand, since they come any time. The slot can be changed on every entry.
 - **Food memory**: each log updates the food's usual grams.
 - **Copy**: a meal or a whole day to today.
 - **To check**: entries left unconfirmed. They count in today's totals as estimates ("~"), sit at the top of Log with their count on the tab, and each takes one tap to confirm or open.

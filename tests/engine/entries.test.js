@@ -58,12 +58,16 @@ test('liquids: ml to grams with the food’s density, 1 by default', () => {
 
 test('meal slot from the time', () => {
   assert.equal(mealForTime('07:30'), 'breakfast');
-  assert.equal(mealForTime('03:59'), 'snacks');
-  assert.equal(mealForTime('11:00'), 'lunch');
-  assert.equal(mealForTime('16:59'), 'lunch');
-  assert.equal(mealForTime('17:00'), 'dinner');
-  assert.equal(mealForTime('22:15'), 'snacks');
+  assert.equal(mealForTime('11:59'), 'breakfast');
+  assert.equal(mealForTime('12:00'), 'lunch');
+  assert.equal(mealForTime('17:59'), 'lunch');
+  assert.equal(mealForTime('18:00'), 'dinner');
+  // Snacks come any time of day, so the time never picks them.
+  assert.equal(mealForTime('22:15'), 'dinner');
+  assert.equal(mealForTime('03:59'), 'dinner');
   assert.equal(mealForTime('10:30', { lunch: '10:00' }), 'lunch');
+  // A value saved before snacks lost their time still works.
+  assert.equal(mealForTime('22:15', { breakfast: '04:00', lunch: '11:00', dinner: '17:00', snacks: '21:00' }), 'dinner');
 });
 
 test('dates from the phone: an entry logged at 23:30 stays on that date', () => {

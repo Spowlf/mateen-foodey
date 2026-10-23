@@ -11,7 +11,7 @@ test('sync: the first request seeds default settings, once', async () => {
   const settings = Object.fromEntries(body.changes.settings.map((s) => [s.id, s.value]));
   assert.deepEqual(settings, {
     floorKcal: 1500, exerciseAddBackPct: 50, weightUnit: 'kg', sources: { off: true, cofid: true, usda: true },
-    mealTimes: { breakfast: '04:00', lunch: '11:00', dinner: '17:00', snacks: '21:00' },
+    mealTimes: { breakfast: '04:00', lunch: '12:00', dinner: '18:00' },
   });
   await w.call('PUT', '/settings/floorKcal', { body: { value: 1600 } });
   await w.call('GET', '/sync?since=0');
