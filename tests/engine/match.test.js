@@ -28,6 +28,12 @@ test('match: ties go to the most used food, then the shorter name, in a fixed or
   assert.deepEqual(rankFoods('oat milk', foods).map((f) => f.name), ['Oat milk Z', 'Oat milk A', 'Oat milk B']);
 });
 
+test('match: among equally close names, the whole food beats its parts', () => {
+  const foods = [{ name: 'Eggs, chicken, yolk, boiled' }, { name: 'Eggs, chicken, white, boiled' }, { name: 'Eggs, chicken, whole, boiled' }];
+  assert.equal(rankFoods('boiled egg', foods)[0].name, 'Eggs, chicken, whole, boiled');
+  assert.equal(rankFoods('egg yolk', foods)[0].name, 'Eggs, chicken, yolk, boiled');
+});
+
 test('match: the brand counts as part of the name', () => {
   assert.deepEqual(rankFoods('hovis', [{ name: 'Soft White Medium', brand: 'Hovis' }]).length, 1);
 });

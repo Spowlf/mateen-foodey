@@ -21,8 +21,9 @@ export const nameWords = (text) => [...new Set(normaliseName(text).split(' ').fi
 export const stateFits = (want, state) => !want || want === 'asSold' || !state || state === 'asSold' || want === state;
 
 /**
- * Foods whose names hold every word of query, best first: the fewest extra words, then the most
- * used, then the shortest name, then by name, so ties never reorder. Each food is { name, brand?, state?, useCount? }.
+ * Foods whose names hold every word of query, best first: the fewest extra words, then a whole
+ * food before its parts ("Eggs, chicken, whole, boiled" before the yolk), then the most used, then
+ * the shortest name, then by name, so ties never reorder. Each food is { name, brand?, state?, useCount? }.
  * state: the state the item was weighed in; foods in the other state are left out.
  */
 export function rankFoods(query, foods, { state = null } = {}) {
@@ -33,9 +34,10 @@ export function rankFoods(query, foods, { state = null } = {}) {
     if (!stateFits(state, food.state)) continue;
     const have = new Set(nameWords(`${food.name ?? ''} ${food.brand ?? ''}`));
     if (!want.every((w) => have.has(w))) continue;
-    scored.push({ food, extra: have.size - want.length });
+    scored.push({ food, extra: have.size - want.length, part: have.has('whole') ? 0 : 1 });
   }
   scored.sort((a, b) => a.extra - b.extra
+    || a.part - b.part
     || (b.food.useCount ?? 0) - (a.food.useCount ?? 0)
     || a.food.name.length - b.food.name.length
     || (a.food.name < b.food.name ? -1 : a.food.name > b.food.name ? 1 : 0));
