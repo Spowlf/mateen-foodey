@@ -373,6 +373,13 @@ a.text-button { display: inline-flex; align-items: center; text-decoration: none
 @media (hover: hover) { .toggle-row:hover { background: color-mix(in srgb, var(--surface) 90%, var(--accent-soft)); } }
 .toggle-row:active { background: var(--accent-soft); }
 
+/* The weekly review's card on Log: a flat surface, since the headline above it is the one raised thing. */
+.review-card { display: grid; gap: var(--s2); padding: var(--s4); background: var(--surface); border-radius: 16px; }
+/* A row that isn't itself a button (the review's To check rows: Confirm sits beside it). */
+.list-row.static { cursor: default; }
+.list-row.static:active { background: transparent; }
+@media (hover: hover) { .list-row.static:hover { background: transparent; } }
+
 /* Fields */
 
 .field { display: grid; gap: var(--s1); }

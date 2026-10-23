@@ -9,6 +9,7 @@ import { runAction, keepUnits, mealNow as slotNow, loggedToast } from './format.
 import { logSavedMeal } from './saved-meal-sheet.js';
 import { openBatchLog } from './recipe-sheets.js';
 import { renderHeadline } from './headline.js';
+import { renderReviewCard } from './review.js';
 import { createFoodSearch } from './food-search.js';
 import { openGramsSheet } from './grams-sheet.js';
 import { openCheckSheet } from './check-sheet.js';
@@ -30,11 +31,12 @@ export function renderLog(root, { repo }) {
   const S = repo.state;
   const el = {
     headline: h('section', { 'aria-live': 'polite', 'aria-label': 'Today' }),
+    review: h('section', { 'aria-label': 'Weekly Review' }),
     toCheck: h('section', { class: 'section', 'aria-label': 'To Check' }),
     quick: h('section', { class: 'section', 'aria-label': 'Quick Log' }),
     add: h('section', { class: 'add', 'aria-label': 'Log Food' }),
   };
-  fill(root, h('div', { class: 'screen' }, el.headline, el.toCheck, el.quick, el.add));
+  fill(root, h('div', { class: 'screen' }, el.headline, el.review, el.toCheck, el.quick, el.add));
 
   let form = null;
   let busy = false;
@@ -304,6 +306,7 @@ export function renderLog(root, { repo }) {
   }
 
   renderHeadline(el.headline, repo);
+  renderReviewCard(el.review, repo);
   renderToCheck();
   renderQuick();
   start();
@@ -312,6 +315,7 @@ export function renderLog(root, { repo }) {
     /** New data arrived (a sync or a save): update everything except what's being typed. */
     refresh() {
       renderHeadline(el.headline, repo);
+      renderReviewCard(el.review, repo);
       renderToCheck();
       renderQuick();
       renderAdd();

@@ -77,3 +77,42 @@ test('"Mark N Days Complete": only unflagged unreviewed days in the reviewed wee
   const marked = [...days, ...dayRows(r.toMark, 'complete')];
   assert.deepEqual(dates.map((d) => dayState(marked, d)), ['complete', 'incomplete', 'unreviewed', 'complete', 'complete', 'complete', 'complete']);
 });
+
+test('review card: due from Monday until done, and only for a week with something in it', async () => {
+  const { reviewDue, weeksInARow, doneText } = await import('../../src/engine/review.js');
+  const entries = [eaten('2026-10-14', 1800)];
+  assert.equal(reviewDue({ reviews: [], entries, today: '2026-10-19' }), '2026-10-12');
+  assert.equal(reviewDue({ reviews: [], entries, today: '2026-10-25' }), '2026-10-12');   // still due later in the week
+  assert.equal(reviewDue({ reviews: [{ id: '2026-10-12', deletedAt: null }], entries, today: '2026-10-19' }), null);
+  assert.equal(reviewDue({ reviews: [], entries: [], weights: [weighIn('2026-10-18', 80_000)], today: '2026-10-19' }), '2026-10-12');
+  assert.equal(reviewDue({ reviews: [], entries: [eaten('2026-10-19', 500)], today: '2026-10-19' }), null);   // nothing in the reviewed week
+  const reviews = ['2026-09-28', '2026-10-05'].map((id) => ({ id, deletedAt: null }));
+  assert.equal(weeksInARow(reviews, '2026-10-12'), 3);
+  assert.equal(weeksInARow([{ id: '2026-09-28', deletedAt: null }], '2026-10-12'), 1);   // a gap breaks the run
+  assert.deepEqual([doneText(1), doneText(3)], ['Week reviewed.', 'Reviewed 3 weeks in a row.']);
+});
+
+test('review target: adaptive from the estimate; fixed from the trend against the goal, capped and floored', async () => {
+  const { reviewTarget, trendAgainstGoal } = await import('../../src/engine/review.js');
+  const fixed = { mode: 'fixed', kcal: 2100, goalRateG: -500 };
+  assert.equal(trendAgainstGoal(-100, -500), 'Your trend fell 0.1 kg against a goal of losing 0.5 kg.');
+  assert.equal(trendAgainstGoal(20, 0), 'Your trend held steady against a goal of holding steady.');
+  assert.equal(trendAgainstGoal(null, -500), 'Not enough weigh-ins this week to see your trend.');
+  // Lost 0.1 kg against 0.5: 440 kcal a day behind, so 150 less (the cap).
+  assert.equal(reviewTarget({ current: fixed, trendChangeGrams: -100 }).proposedKcal, 1950);
+  // Lost 0.55 kg: 55 kcal a day ahead, so 60 more, to the nearest 10.
+  assert.equal(reviewTarget({ current: fixed, trendChangeGrams: -550 }).proposedKcal, 2160);
+  const onTrack = reviewTarget({ current: fixed, trendChangeGrams: -480 });
+  assert.deepEqual([onTrack.proposedKcal, onTrack.text], [null, 'Your trend fell 0.5 kg against a goal of losing 0.5 kg. You’re on track.']);
+  assert.equal(reviewTarget({ current: { ...fixed, kcal: 1550 }, trendChangeGrams: 0 }).proposedKcal, 1500);   // the floor
+  assert.equal(reviewTarget({ current: fixed, trendChangeGrams: null }).proposedKcal, null);
+
+  const adaptive = { mode: 'adaptive', kcal: 2100, goalRateG: -500 };
+  const est = { ok: true, kcal: 2600, text: '~2,600 kcal, from 21 complete days and your weight trend.' };
+  const a = reviewTarget({ current: adaptive, estimate: est });
+  assert.equal(a.proposedKcal, 2050);
+  assert.equal(a.text, 'Your maintenance estimate is ~2,600 kcal, from 21 complete days and your weight trend. With your goal, that’s 2,050 kcal a day (less 550 kcal).');
+  assert.equal(reviewTarget({ current: { ...adaptive, kcal: 2050 }, estimate: est }).proposedKcal, null);   // nothing to change
+  assert.equal(reviewTarget({ current: adaptive, estimate: { ok: false, text: 'Add 2 more weigh-ins.' } }).text, 'Add 2 more weigh-ins. Until then, your target stays as it is.');
+  assert.equal(reviewTarget({ current: null }).text, 'No daily target yet. Set one in Settings.');
+});
