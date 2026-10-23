@@ -1,6 +1,6 @@
 // Log: the headline and protein, To check, Log a Saved Meal, then one box for what you ate. A sentence goes
 // to the check sheet; a food's name searches your foods and the sources; a barcode's digits look it
-// up; the camera reads a photo. Quick Add takes typed kcal.
+// up, typed or scanned with the camera; the camera also reads a photo. Quick Add takes typed kcal.
 // What's typed and the check sheet's items are the one offline draft ("Not synced"): kept on every
 // edit, cleared only once the backend has the entries.
 
@@ -14,6 +14,7 @@ import { openGramsSheet } from './grams-sheet.js';
 import { openCheckSheet } from './check-sheet.js';
 import { openQuickAdd } from './quick-add.js';
 import { photoForParse } from './photo.js';
+import { openScanner } from './scan.js';
 import { submitDraft } from '../db/drafts.js';
 import { OfflineError } from '../errors.js';
 import {
@@ -154,6 +155,7 @@ export function renderLog(root, { repo }) {
   });
   const photoInput = h('input', { type: 'file', accept: 'image/*', hidden: true, onchange: () => readPhoto() });
   const photoButton = h('button', { type: 'button', class: 'icon-button boxed', 'aria-label': 'Log from a Photo', onclick: () => photoInput.click() }, icon('camera'));
+  const scanButton = h('button', { type: 'button', class: 'icon-button boxed', 'aria-label': 'Scan a Barcode', onclick: () => openScanner({ onCode: lookUpBarcode }) }, icon('barcode'));
   const notSynced = h('p', { class: 'not-synced' }, h('span', { class: 'tag tag-quiet' }, 'Not synced'), h('span', {}, 'Kept on this phone until you’re back online.'));
   const checkButton = h('button', { type: 'button', class: 'button primary', onclick: () => check() });
   const quickAdd = h('button', { type: 'button', class: 'text-button', onclick: () => openQuickAdd({ repo, date: today(), meal: meal() }) }, 'Quick Add');
@@ -175,7 +177,7 @@ export function renderLog(root, { repo }) {
     }),
   });
 
-  fill(el.add, mealChips, h('div', { class: 'add-box' }, box, photoButton), photoInput, notSynced,
+  fill(el.add, mealChips, h('div', { class: 'add-box' }, box, scanButton, photoButton), photoInput, notSynced,
     h('div', { class: 'add-actions' }, checkButton, quickAdd), results.el);
 
   function renderAdd() {
@@ -193,6 +195,7 @@ export function renderLog(root, { repo }) {
           : n ? titleCase(`check ${n} ${n === 1 ? 'item' : 'items'}`)
             : form.text.trim() ? 'Check Items' : 'Type What You Ate';
     photoButton.disabled = busy || !connected || offline;
+    scanButton.disabled = busy || !connected || offline;
     quickAdd.disabled = !connected;
     if (searchable(form.text) || BARCODE.test(form.text.trim())) results.search(form.text);
     else results.clear();

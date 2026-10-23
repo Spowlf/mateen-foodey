@@ -6,7 +6,7 @@ import { makeWorker, ORIGIN } from './helpers.js';
 const ROUTES = [
   ['GET', '/sync?since=0'], ['PUT', '/foods/f1', {}], ['DELETE', '/foods/f1'], ['POST', '/batch', {}],
   ['GET', '/search?q=egg'], ['GET', '/barcode/5010029000016'], ['POST', '/parse', { text: 'egg' }],
-  ['POST', '/health', { date: '2026-10-23' }],
+  ['POST', '/health', { date: '2026-10-23' }], ['GET', '/health/weights?from=2026-10-17&to=2026-10-23'],
   ['GET', '/summary?date=2026-10-26'], ['POST', '/summary', { timestamp: '2026-10-26T07:00:00+00:00' }], ['POST', '/restore', {}],
   ['GET', '/nothing'],
 ];

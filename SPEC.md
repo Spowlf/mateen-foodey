@@ -56,7 +56,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
   5. **Record**: entries are saved with copied nutrition, `nutritionBasis`, `portionBasis` and assumptions.
 - **Photo**: the same five steps from a photo, resized on the phone to 1,024 px on the long edge before upload. Portions from photos are always `guessed` until edited.
 - **Search**: one field; your foods first, then the sources. The phone searches after a pause in typing, not on every keystroke, and the Worker caches recent queries as well as the foods they found, to keep requests to Open Food Facts and USDA modest.
-- **Barcode**: typed barcode numbers first, looked up on Open Food Facts. Camera scanning comes later, with a decoder file vendored into `vendor/` and served from our own origin.
+- **Barcode**: typed or scanned with the camera, looked up on Open Food Facts. Scanning reads EAN-13, EAN-8, UPC-A and UPC-E with the phone's own BarcodeDetector where there is one, else ZXing, vendored into `vendor/` and served from our own origin.
 - **Quick add**: kcal, with optional macros and name.
 - **Meal slot**: defaults from the time of day (times editable in Settings) and can be changed on every entry.
 - **Food memory**: each log updates the food's usual grams.
@@ -76,7 +76,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 
 ## Exercise and Health
 
-- **Health Shortcut**: `POST /health { date, activeKcal, steps, weightKg, workouts }` replaces that date's activity, adds each workout once (matched by start and type) and saves the weight. It runs from a personal automation (after dismissing the morning alarm), or by hand from the Shortcuts app. Setup is in `docs/shortcuts.md`.
+- **Health Shortcut**: `POST /health { date, activeKcal, steps, weightKg, workouts }` replaces that date's activity, adds each workout once (matched by start and type) and saves the weight. It runs from a personal automation (after dismissing the morning alarm), or by hand from the Shortcuts app. Setup is in `docs/shortcuts.md`. A weight you typed in the app is never replaced by Health's. `GET /health/weights?from=&to=` (the phone's dates, at most 31 days) lists the weights you typed, as `{ weights: [{ date, kg }] }`; Sync Health writes each to Health on a day Health has no weight.
 - **Manual exercise**: an activity from `data/activities.json` (MET values from the Compendium of Physical Activities, with sources) and minutes. kcal = (MET − 1) × body kg × hours, using the latest weight, marked "~". This is net energy, above resting, the same basis as Apple Health's active energy.
 - On a day with Health active energy, manual workouts don't add to it, because Health already counts them.
 - **Weight history**: `scripts/import-health-weights.js`, run on the Mac, reads the Health app's export and uploads body weight records once.

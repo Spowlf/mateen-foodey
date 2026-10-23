@@ -23,11 +23,11 @@ function walk(dir) {
   });
 }
 
-test('precache: every file under src/ and the shell is listed', () => {
+test('precache: every file under src/ and vendor/ and the shell is listed', () => {
   const files = listed();
   const manifest = JSON.parse(readFileSync(join(ROOT, 'manifest.webmanifest'), 'utf8'));
   const needed = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', ...walk('icons'),
-    ...manifest.icons.map((i) => i.src), ...walk('src').filter((f) => f.endsWith('.js'))];
+    ...manifest.icons.map((i) => i.src), ...walk('src').filter((f) => f.endsWith('.js')), ...walk('vendor').filter((f) => f.endsWith('.js'))];
   const missing = needed.filter((f) => !files.includes(f));
   assert.deepEqual(missing, [], 'add these to FILES in sw.js');
 });

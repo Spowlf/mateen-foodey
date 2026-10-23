@@ -8,6 +8,7 @@
 //   GET    /barcode/:code         a packaged food from Open Food Facts ({ food })
 //   POST   /parse                 sentence or photo logging, steps 1 to 3: { text } or { image: { mediaType, data } }
 //   POST   /health                the Health Shortcut: { date, activeKcal, steps, weightKg, workouts }; text
+//   GET    /health/weights?from=&to=  weights typed in the app, for the Shortcut to write to Health
 //   GET    /summary?date=         the weekly summary for the week before the one date falls in, as text
 //   POST   /summary               the same from the phone's timestamp: { timestamp }
 //   POST   /restore               replace everything with a backup file's contents
@@ -22,7 +23,7 @@ import { HttpError, json, text, withCors, authorised, readJson, refuse } from '.
 import { saveRow, saveBatch, deleteRow, ensureSeeded, settingsOf } from './rows.js';
 import { searchFoods, lookupBarcode, validBarcode } from './sources.js';
 import { parseFood } from './parse.js';
-import { syncHealth } from './health.js';
+import { syncHealth, typedWeights } from './health.js';
 
 const TEXT_ROUTES = new Set(['health', 'summary']);
 const STATES = new Set(['raw', 'cooked', 'asSold']);
@@ -73,6 +74,7 @@ async function route(request, ctx) {
   }
   if (method === 'POST' && first === 'parse' && !id) return json(await parseFood(ctx, await readJson(request)));
   if (method === 'POST' && first === 'health' && !id) return text(await syncHealth(ctx, await readJson(request)));
+  if (method === 'GET' && first === 'health' && id === 'weights') return json(await typedWeights(ctx, url.searchParams.get('from'), url.searchParams.get('to')));
   if ((method === 'GET' || method === 'POST') && first === 'summary' && !id) {
     let start;
     if (method === 'POST') start = reviewWeekFromTimestamp((await readJson(request)).timestamp);

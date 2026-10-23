@@ -1,8 +1,12 @@
 // POST /health, the Health Shortcut: { date, activeKcal, steps, weightKg, workouts: [{ start, type, minutes, kcal }] }.
 // It replaces the date's activity, adds each workout once (its id is its start and type, so running
-// the Shortcut again changes nothing), and saves the weight as the day's reading. The date is the phone's.
+// the Shortcut again changes nothing), and saves the weight as the day's reading, unless you typed
+// that day's weight in the app: yours is never replaced. The date is the phone's.
+//
+// GET /health/weights?from=&to=: the weights you typed in the app between two of the phone's dates
+// ({ weights: [{ date, kg }] }), for the Shortcut to write to Health on days Health has none.
 
-import { validDate, partsFromIso, formatDayShort, formatWeight } from '../../src/engine/index.js';
+import { validDate, daysBetween, partsFromIso, formatDayShort, formatWeight } from '../../src/engine/index.js';
 import { refuse } from './http.js';
 import { settingsOf } from './rows.js';
 
@@ -36,17 +40,28 @@ export async function syncHealth(ctx, body) {
     });
   }
 
+  const [typed] = weightGrams == null ? [] : await ctx.store.all('weights', "date = ? AND source = 'manual' AND deletedAt IS NULL", date);
   await ctx.store.write({
     activity: [{ id: date, date, activeKcal, steps, source: 'health', deletedAt: null }],
     workouts,
-    weights: weightGrams == null ? [] : [{ id: date, date, grams: weightGrams, source: 'health', deletedAt: null }],
+    weights: weightGrams == null || typed ? [] : [{ id: date, date, grams: weightGrams, source: 'health', deletedAt: null }],
   }, ctx.now);
 
   const { weightUnit } = await settingsOf(ctx.store);
   const parts = [];
   if (activeKcal != null) parts.push(`${activeKcal.toLocaleString('en-GB')} active kcal`);
   if (steps != null) parts.push(`${steps.toLocaleString('en-GB')} ${steps === 1 ? 'step' : 'steps'}`);
-  if (weightGrams != null) parts.push(formatWeight(weightGrams, weightUnit));
+  if (weightGrams != null) parts.push(formatWeight(typed?.grams ?? weightGrams, weightUnit));
   if (workouts.length) parts.push(`${workouts.length} ${workouts.length === 1 ? 'workout' : 'workouts'}`);
   return parts.length ? `Synced ${formatDayShort(date)}: ${parts.join(', ')}.` : `Synced ${formatDayShort(date)}: nothing from Health yet.`;
+}
+
+const MAX_WEIGHT_DAYS = 31;
+
+export async function typedWeights(ctx, from, to) {
+  if (!validDate(from) || !validDate(to) || from > to || daysBetween(from, to) >= MAX_WEIGHT_DAYS) {
+    throw refuse(`send from and to dates from the phone, at most ${MAX_WEIGHT_DAYS} days apart.`);
+  }
+  const rows = await ctx.store.all('weights', "date >= ? AND date <= ? AND source = 'manual' AND deletedAt IS NULL ORDER BY date", from, to);
+  return { weights: rows.map((r) => ({ date: r.date, kg: r.grams / 1000 })) };
 }

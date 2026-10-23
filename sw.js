@@ -74,8 +74,10 @@ const FILES = [
   'src/ui/recipe-sheets.js',
   'src/ui/review.js',
   'src/ui/saved-meal-sheet.js',
+  'src/ui/scan.js',
   'src/ui/settings.js',
   'src/ui/weight.js',
+  'vendor/zxing-0.23.0.min.js',
 ];
 
 /** The URL with a query no cache has seen, so the CDN passes the request on to GitHub Pages. */

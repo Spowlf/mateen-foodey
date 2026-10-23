@@ -1,6 +1,6 @@
 # Shortcuts
 
-Two Shortcuts talk to the backend, plus a script you run once on the Mac. Each Shortcut sends one request to the Worker and shows its one-line reply as a notification.
+Two Shortcuts talk to the backend, plus a script you run once on the Mac. Each Shortcut shows what the Worker replied as a notification.
 
 You need:
 
@@ -13,7 +13,7 @@ Every request has the same header: `Authorization` = `Bearer YOUR-TOKEN` (the wo
 
 ## 1. Sync Health
 
-Sends yesterday's and today's active energy, steps and weight from the Health app, so each run finishes yesterday and brings today up to date. It runs each morning on its own; run it from the Shortcuts app (or a home screen icon for it) whenever you want today's activity so far.
+Sends yesterday's and today's active energy, steps and weight from the Health app, so each run finishes yesterday and brings today up to date. First it writes the weights you typed in the app in the last 7 days to Health, on any day Health has no weight. It runs each morning on its own; run it from the Shortcuts app (or a home screen icon for it) whenever you want today's activity so far, or to send a weight you've just typed.
 
 In the Shortcuts app, make a new Shortcut called **Sync Health** with these actions:
 
@@ -47,6 +47,26 @@ Run it once by hand. The notification should read like:
 > Synced 23 Oct: 480 active kcal, 9,120 steps, 72.4 kg.
 
 Check that both days match Health.
+
+**Weights you typed, to Health.** Put these actions at the very top of **Sync Health**, before step 1. They ask the Worker for the weights you typed in the app over the last 7 days, and write each one to Health only when Health has no weight that day, so running it again never adds a second reading.
+
+1. **Date**: Current Date. Then **Format Date**: Custom, `yyyy-MM-dd`. Rename the result *To*.
+2. **Adjust Date**: *Subtract* 6 *days* from *Current Date*. Then **Format Date**: Custom, `yyyy-MM-dd`. Rename the result *From*.
+3. **Get Contents of URL**: `https://YOUR-WORKER/health/weights?from=`*From*`&to=`*To*, *Method* GET, the same header.
+4. **Get Dictionary Value**: `weights` from *Contents of URL*.
+5. **Repeat with Each** item in *Dictionary Value*. Everything to step 12 goes inside it.
+6. **Get Dictionary Value**: `date` from *Repeat Item*. Rename the result *Weigh Day*. Then **Get Dictionary Value**: `kg` from *Repeat Item*. Rename the result *Kg*.
+7. **Get Dates from Input**: *Weigh Day*. Then **Adjust Date**: *Get Start of Day*. Rename the result *Day Start*.
+8. **Adjust Date**: *Add* 1 *day* to *Day Start*. Rename the result *Day End*.
+9. **Find Health Samples** where *Type* is *Weight* and *Start Date* is between *Day Start* and *Day End*, limit 1. No Source filter: any weight that day counts.
+10. **Count**: *Health Samples*. Then **If** *Count* *is* 0:
+    - **Adjust Date**: *Add* 8 *hours* to *Day Start*.
+    - **Log Health Sample**: *Type* Weight, *Value* *Kg*, *Unit* kg, *Date* *Adjusted Date*.
+    - **Text**: `Weight added to Health for ` *Weigh Day*`.` Then **Add to Variable**: *Text*, variable *Synced*.
+11. **End If**.
+12. **End Repeat**.
+
+The first time, Shortcuts asks to write weight to Health: allow it. A weight you change in the app after it's in Health isn't sent again, because Health already has one that day: change it in the Health app too. Health's reading never replaces one you typed in the app.
 
 Each run replaces both days' activity with Health's figures, so running it as often as you like never counts anything twice. A day with no weigh-in sends an empty weight, which Shortcuts turns into 0; the Worker takes 0 as no reading, so the activity still saves. A weight sent again replaces the day's reading with the same one.
 
