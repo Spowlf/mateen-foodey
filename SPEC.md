@@ -68,7 +68,7 @@ Right after eating, or while plating up, phone in one hand. A regular food or me
 
 - **Recipe** `{ id, name, ingredients: [{ foodId, grams }] }`. Ingredients are added by sentence (the same five steps) or search. Each line shows raw, cooked or as sold, because the food must match the state it was weighed in.
 - **Batch**, one per time it's made: `{ id, recipeId, date, ingredients, totals, finishedGrams, potId, portions }`. "Make Again" copies the last batch's ingredients for editing.
-- The finished weight defaults to the sum of the ingredients. "Weigh the Finished Dish" replaces it; picking a saved pot subtracts its weight. **Pots** `{ id, name, grams }`.
+- The finished weight defaults to the sum of the ingredients. "Weigh the Finished Dish" replaces it, weighed without the pot (zero the scales with it on).
 - Logging from a batch asks for grams served (nutrition per gram = totals ÷ finished weight) or, when portions are set, a number of portions (totals ÷ portions, any rounding remainder in the last portion).
 - A batch's totals carry its ingredients' unknowns and estimates: an estimated ingredient makes the batch "~".
 - "~1,050 g left" is the finished weight less what's been logged, never below zero. A batch with nothing left drops off the quick-log chips.
@@ -120,7 +120,7 @@ The review happens on Monday morning and covers the previous Monday to Sunday.
 
 1. **Log**: headline, weekly review card (when due), To check, quick log, sentence and photo logging, search, barcode, quick add.
 2. **Overview**: Today / Week / Month, when Health last synced.
-3. **Foods**: My Foods / Saved Meals / Recipes; pots.
+3. **Foods**: My Foods / Saved Meals / Recipes.
 4. **History**: grouped by day, with each day's state; search; edit and delete with Undo; Copy to Today; Mark Complete / Mark Incomplete.
 5. **Weight**: trend, chart, estimate, Add Weight.
 - **Settings** (header icon): goal, mode and targets, floor, exercise added back, meal times, weight units, food sources, backend token, backup and restore, CSV export.

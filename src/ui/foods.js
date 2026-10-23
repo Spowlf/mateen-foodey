@@ -1,12 +1,12 @@
-// Foods: My Foods (yours, most used first, with a search), Saved Meals, and Recipes with the pots
-// you weigh them in. Each item opens its sheet; adding is the text button above each list.
+// Foods: My Foods (yours, most used first, with a search), Saved Meals, and Recipes. Each item
+// opens its sheet; adding is the text button above each list.
 
 import { h, fill, segmented } from './dom.js';
-import { foodSub, keepUnits } from './format.js';
+import { foodSub } from './format.js';
 import { openFoodSheet } from './food-sheet.js';
 import { openSavedMealSheet, savedMealSub } from './saved-meal-sheet.js';
-import { openRecipeSheet, openRecipeEditor, openPotSheet, recipeSub } from './recipe-sheets.js';
-import { myFoods, isLive, formatGrams } from '../engine/index.js';
+import { openRecipeSheet, openRecipeEditor, recipeSub } from './recipe-sheets.js';
+import { myFoods, isLive } from '../engine/index.js';
 
 const SHOWN = 50;
 const byName = (a, b) => a.name.localeCompare(b.name, 'en-GB');
@@ -56,17 +56,9 @@ export function renderFoods(root, { repo }) {
         : h('p', { class: 'empty-line' }, 'Save a meal you eat often, and log it from Log in one tap.'));
     }
     const recipes = S.recipes.filter(isLive).sort(byName);
-    const pots = S.pots.filter(isLive).sort(byName);
-    return fill(list,
-      recipes.length
-        ? h('ul', { class: 'list', 'aria-label': 'Recipes' }, recipes.map((r) => row(r.name, recipeSub(r, S), () => openRecipeSheet({ repo, recipe: r }))))
-        : h('p', { class: 'empty-line' }, 'Add a dish you cook in batches. Weigh it once, then log it by grams or portions.'),
-      h('section', { class: 'section', 'aria-label': 'Pots' },
-        h('h2', { class: 'subhead' }, 'Pots'),
-        pots.length
-          ? h('ul', { class: 'list' }, pots.map((p) => row(p.name, null, () => openPotSheet({ repo, pot: p }), formatGrams(p.grams))))
-          : h('p', { class: 'reason' }, keepUnits('Weigh a pot empty once, and a dish weighed in it has the pot taken off.')),
-        addButton('Add a Pot', () => openPotSheet({ repo }))));
+    return fill(list, recipes.length
+      ? h('ul', { class: 'list', 'aria-label': 'Recipes' }, recipes.map((r) => row(r.name, recipeSub(r, S), () => openRecipeSheet({ repo, recipe: r }))))
+      : h('p', { class: 'empty-line' }, 'Add a dish you cook in batches. Weigh it once, then log it by grams or portions.'));
   }
 
   function render() {

@@ -1,15 +1,15 @@
-// Recipes, batches and pots. A recipe is what goes in; a batch is one time it's made, with its
+// Recipes and batches. A recipe is what goes in; a batch is one time it's made, with its
 // ingredients' nutrition copied in and its finished weight: the sum of the ingredients, or the dish
-// weighed, less the pot it's in. Logging from a batch takes grams served, or portions when it's split.
+// as weighed, without its pot. Logging from a batch takes grams served, or portions when it's split.
 
-import { h, fill, chips, field, openSheet, toast } from './dom.js';
+import { h, fill, field, openSheet, toast } from './dom.js';
 import { runAction, mealNow, loggedToast, deleteWithUndo, offlineLabel, keepUnits } from './format.js';
 import { createLinesEditor } from './lines-editor.js';
 import { openGramsSheet } from './grams-sheet.js';
 import {
   linesWithFoods, linesTotal, storedLines, figuresText, unknownLines, today, formatDay, formatGrams, formatKcal, kcalOf, titleCase,
   batchesOf, nextIngredients, makeBatch, leftText, servedAmounts, portions, portionsLogged, portionsLeft, batchEntry,
-  isLive, sumGrams,
+  sumGrams,
 } from '../engine/index.js';
 
 const MAX_CHOICES = 4;
@@ -71,52 +71,6 @@ export function openBatchLog({ repo, batch, recipe }) {
   });
 }
 
-/** A pot you weigh dishes in: its name and empty weight. onSaved(pot) runs after it's saved. */
-export function openPotSheet({ repo, pot = null, onSaved = null }) {
-  const isNew = !pot;
-  let busy = false;
-  const name = h('input', { class: 'input', type: 'text', autocomplete: 'off', autocapitalize: 'sentences', enterkeyhint: 'done', value: pot?.name ?? '', placeholder: 'Large pan', oninput: () => render() });
-  const grams = numberInput({ value: pot ? String(pot.grams) : '', oninput: () => render() });
-  const save = h('button', { type: 'button', class: 'button primary', onclick: () => submit() });
-
-  function missing() {
-    if (!name.value.trim()) return 'Enter a Name';
-    const g = whole(grams);
-    if (g == null || g > 20_000) return 'Enter the Grams';
-    return null;
-  }
-
-  function render() {
-    const blocked = offlineLabel(repo);
-    save.disabled = busy || !!blocked || !!missing();
-    save.textContent = busy ? 'Saving' : blocked ?? missing() ?? (isNew ? 'Add Pot' : 'Save Changes');
-  }
-
-  async function submit() {
-    if (busy || missing()) return;
-    busy = true;
-    render();
-    const id = pot?.id ?? crypto.randomUUID();
-    const result = await runAction(() => repo.saveRow('pots', id, { name: name.value.trim(), grams: whole(grams), deletedAt: null }));
-    busy = false;
-    if (!result) return render();
-    const saved = result.changes.pots?.[0];
-    s.close();
-    toast(`${isNew ? 'Added' : 'Saved'} ${saved.name}.`);
-    onSaved?.(saved);
-  }
-
-  const s = openSheet({ title: isNew ? 'Add a Pot' : pot.name },
-    h('div', { class: 'sheet-form' },
-      field('Name', name),
-      field('Empty Weight g', grams, 'Weigh it empty once. Its weight comes off any dish weighed in it.'),
-      h('div', { class: 'sheet-actions' },
-        save,
-        !isNew && h('div', {}, h('button', { type: 'button', class: 'text-button danger', onclick: async () => { if (await deleteWithUndo(repo, 'pots', pot)) s.close(); } }, 'Delete Pot')))));
-  render();
-  return s;
-}
-
 /**
  * Making a recipe, or changing a batch: its date, ingredients (from the last batch, or the recipe the
  * first time), finished weight and portions.
@@ -126,7 +80,6 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
   const isNew = !batch;
   const start = linesWithFoods(batch ? batch.ingredients : nextIngredients(recipe, S.batches), S.foods);
   let weighing = batch?.weighedGrams != null;
-  let potId = batch?.potId ?? null;
   let busy = false;
 
   const date = h('input', { class: 'input', type: 'date', value: batch?.date ?? today(), max: today(), oninput: () => render() });
@@ -141,9 +94,6 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
   const problem = h('p', { class: 'warning', 'aria-live': 'polite' });
   const save = h('button', { type: 'button', class: 'button primary', onclick: () => submit() });
 
-  const livePots = () => S.pots.filter(isLive).sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
-  const pot = () => (potId ? S.pots.find((p) => p.id === potId) ?? null : null);
-
   function attempt() {
     const lines = editor.lines();
     if (!lines.length) return { label: 'Add an Ingredient' };
@@ -153,37 +103,32 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
     const portionCount = count.value.trim() ? whole(count) ?? -1 : null;
     return makeBatch({
       id: batch?.id ?? 'preview', recipeId: recipe.id, date: date.value, lines,
-      weighedGrams: weighing ? whole(weighed) : null, pot: weighing ? pot() : null, portions: portionCount,
+      weighedGrams: weighing ? whole(weighed) : null, portions: portionCount,
     });
   }
 
-  /** The finished weight's parts: redrawn when weighing starts or stops, or the pots change. */
+  /** The finished weight's parts: redrawn when weighing starts or stops. */
   function renderFinished() {
     if (!weighing) {
       return fill(finished, finishedLine,
         h('p', { class: 'reason' }, 'Cooking changes the weight. Weigh the dish for exact portions.'),
         h('div', {}, h('button', { type: 'button', class: 'text-button', onclick: () => { weighing = true; renderFinished(); render(); weighed.focus(); } }, 'Weigh the Finished Dish')));
     }
-    const potOptions = [{ value: '', label: 'No Pot' }, ...livePots().map((p) => ({ value: p.id, label: `${p.name}, ${formatGrams(p.grams)}` }))];
     fill(finished,
-      field('Weight g', weighed),
-      field('Pot', chips({ label: 'Pot', options: potOptions, value: potId ?? '', onChange: (v) => { potId = v || null; render(); } })),
-      h('div', { class: 'link-row' },
-        h('button', { type: 'button', class: 'text-button', onclick: () => openPotSheet({ repo, onSaved: (saved) => { potId = saved.id; renderFinished(); render(); } }) }, 'Add a Pot'),
-        h('button', { type: 'button', class: 'text-button', onclick: () => { weighing = false; renderFinished(); render(); } }, 'Use the Sum Instead')),
+      field('Weight g', weighed, 'Zero the scales with the empty pot on before you cook.'),
+      h('div', {}, h('button', { type: 'button', class: 'text-button', onclick: () => { weighing = false; renderFinished(); render(); } }, 'Use the Sum Instead')),
       finishedLine);
   }
 
-  /** "1,610 g: 1,850 g less the Large pan, 240 g." */
+  /** "1,610 g, as weighed." */
   function finishedText() {
     const lines = editor.lines();
     if (!weighing) {
       return lines.length && lines.every((l) => l.grams > 0) ? `${formatGrams(sumGrams(lines))}, the sum of the ingredients.` : 'The sum of the ingredients, once each has its grams.';
     }
     const g = whole(weighed);
-    const p = pot();
-    if (g == null) return 'Enter what the dish weighs, in the pot if you weighed it in one.';
-    return p ? `${formatGrams(Math.max(0, g - p.grams))}: ${formatGrams(g)} less the ${p.name}, ${formatGrams(p.grams)}.` : `${formatGrams(g)}, as weighed.`;
+    if (g == null) return 'Enter what the dish weighs, without its pot.';
+    return `${formatGrams(g)}, as weighed.`;
   }
 
   function render() {
@@ -209,7 +154,7 @@ export function openBatchEditor({ repo, recipe, batch = null }) {
     const result = await runAction(() => repo.saveWithFoods('batches', editor.lines(), (lines) => {
       made = makeBatch({
         id, recipeId: recipe.id, date: date.value, lines,
-        weighedGrams: weighing ? whole(weighed) : null, pot: weighing ? pot() : null, portions: count.value.trim() ? whole(count) : null,
+        weighedGrams: weighing ? whole(weighed) : null, portions: count.value.trim() ? whole(count) : null,
       }).batch;
       return made;
     }));
