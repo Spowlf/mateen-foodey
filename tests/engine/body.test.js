@@ -91,3 +91,32 @@ test('weight chart: ranges, points from the first reading, a clean axis and the 
   assert.equal(trendChangeText(points.slice(0, 1)), null);
   assert.deepEqual(lastReading(weights, '2026-10-19'), { date: '2026-10-05', grams: 73_000 });
 });
+
+test('manual exercise: (MET − 1) × kg × hours at the latest weight, with what to do when it can’t be worked out', async () => {
+  const { manualWorkout, metText, workoutsOn } = await import('../../src/engine/exercise.js');
+  const walk = { id: '17200', name: 'Walk, brisk', met: 4.8 };
+  const { row } = manualWorkout({ id: 'w1', date: '2026-10-23', activity: walk, minutes: 30, weightGrams: 72_400 });
+  assert.deepEqual([row.kcal, row.source, row.activityId, row.type, row.start], [138, 'manual', '17200', 'Walk, brisk', null]);   // 3.8 × 72.4 × 0.5 = 137.6
+  assert.equal(metText({ met: 4.8, weightGrams: 72_400, minutes: 30 }), '~138 kcal: (4.8 MET − 1) × 72.4 kg × 0.5 h.');
+  assert.deepEqual(manualWorkout({ id: 'w', date: '2026-10-23', activity: walk, minutes: 30, weightGrams: null }), { error: 'Add a weight first: the kcal depend on it.' });
+  assert.deepEqual(manualWorkout({ id: 'w', date: '2026-10-23', activity: walk, minutes: 0, weightGrams: 72_400 }), { error: 'Enter minutes from 1 to 1,440.' });
+  assert.deepEqual(manualWorkout({ id: 'w', date: '2026-10-23', activity: null, minutes: 5, weightGrams: 72_400 }), { error: 'Pick an activity.' });
+  const list = workoutsOn([{ ...row, deletedAt: null }, { id: 'h', date: '2026-10-23', source: 'health', start: '07:00', deletedAt: null }, { id: 'x', date: '2026-10-22', source: 'manual', deletedAt: null }], '2026-10-23');
+  assert.deepEqual(list.map((w) => w.id), ['h', 'w1']);
+});
+
+test('weight history import: body mass records from Health’s export, one a day, on the date they were weighed', async () => {
+  const { healthWeightRecord, latestPerDay } = await import('../../src/engine/weight.js');
+  const rec = (value, unit, start) => ` <Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Withings" unit="${unit}" creationDate="${start}" startDate="${start}" endDate="${start}" value="${value}">`;
+  const lines = [
+    rec('72.4', 'kg', '2026-10-20 07:10:00 +0100'),
+    rec('72.1', 'kg', '2026-10-20 21:00:00 +0100'),      // later the same day wins
+    rec('159.5', 'lb', '2026-10-21 00:30:00 +0800'),     // Singapore after midnight: its own date
+    rec('11.4', 'st', '2026-10-22 07:00:00 +0000'),
+    rec('5', 'kg', '2026-10-23 07:00:00 +0000'),         // not a person's weight
+    ' <Record type="HKQuantityTypeIdentifierStepCount" unit="count" startDate="2026-10-20 07:10:00 +0100" value="72"/>',
+    '<HealthData locale="en_GB">',
+  ];
+  const days = latestPerDay(lines.map(healthWeightRecord).filter(Boolean));
+  assert.deepEqual(days.map((d) => [d.date, d.grams]), [['2026-10-20', 72_100], ['2026-10-21', 72_348], ['2026-10-22', 72_393]]);
+});

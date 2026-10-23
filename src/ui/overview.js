@@ -5,9 +5,10 @@
 import { h, fill, segmented, icon } from './dom.js';
 import { keepUnits } from './format.js';
 import { meterTable } from './charts.js';
+import { openExerciseSheet, openWorkoutSheet } from './exercise-sheet.js';
 import {
   today, periodBounds, stepPeriod, periodTitle, periodSummary, macroMeters, proteinDaysText, averageText, lastHealthSync,
-  targetOn, dayExercise, dayTotal, entriesOn, isEstimated, kcalOf, formatKcal, mealName, syncedPhrase, titleCase,
+  targetOn, dayExercise, workoutsOn, dayTotal, entriesOn, isEstimated, kcalOf, formatKcal, mealName, syncedPhrase, titleCase,
 } from '../engine/index.js';
 
 const SYNC_HEALTH = 'shortcuts://run-shortcut?name=Sync%20Health';
@@ -83,6 +84,24 @@ export function renderOverview(root, { repo }) {
     };
   }
 
+  /** Today's workouts: Health's, and ones you added (tap to see how they're counted, or delete them). */
+  function exerciseSection(date) {
+    const list = workoutsOn(S.workouts, date);
+    const exercise = dayExercise({ activity: S.activity, workouts: S.workouts, date });
+    const manual = list.some((w) => w.source === 'manual');
+    return h('section', { class: 'section', 'aria-label': 'Exercise' },
+      h('h2', { class: 'subhead' }, 'Exercise'),
+      list.length > 0 && h('ul', { class: 'list' }, list.map((w) => h('li', {},
+        h('button', { type: 'button', class: 'list-row', onclick: () => openWorkoutSheet({ repo, workout: w }) },
+          h('span', { class: 'list-main' },
+            h('span', { class: 'list-title' }, w.type),
+            h('span', { class: 'list-sub' }, `${w.minutes} min, ${w.source === 'health' ? 'from Health' : 'estimated'}`)),
+          h('span', { class: 'list-amount' }, keepUnits(`${w.source === 'manual' ? '~' : ''}${formatKcal(w.kcal)}`)))))),
+      !list.length && h('p', { class: 'empty-line' }, 'No workouts today.'),
+      manual && exercise.source === 'health' && h('p', { class: 'reason' }, 'Health’s active energy already counts every workout, so the ones added here don’t add to today again.'),
+      h('div', {}, h('button', { type: 'button', class: 'text-button', disabled: !repo.connected(), onclick: () => openExerciseSheet({ repo, date }) }, 'Add Exercise')));
+  }
+
   function render() {
     toggle.set(view);
     const now = today();
@@ -109,8 +128,9 @@ export function renderOverview(root, { repo }) {
         meterTable(s.topFoods.map((f) => ({ name: f.name, value: keepUnits(formatKcal(f.kcal)), share: f.share, note: f.times === 1 ? 'Once' : `${f.times} times` })), { caption: 'Top foods by kcal', head: ['Food', 'Kcal', 'Times'] }),
         h('p', { class: 'reason' }, view === 'today' ? 'By kcal today.' : 'By kcal, all logged days.')),
       !s.totalKcal && view === 'today' && h('p', { class: 'empty-line' }, 'Meals, macros and top foods appear here once you log something today.'),
+      view === 'today' && exerciseSection(now),
       h('section', { class: 'section', 'aria-label': 'Health' },
-        h('h2', { class: 'subhead' }, 'Health'),
+        view !== 'today' && h('h2', { class: 'subhead' }, 'Health'),
         h('p', { class: 'reason' }, healthAt ? `${syncedPhrase(healthAt).replace('Last synced', 'Health last synced')}.` : 'Health hasn’t synced yet. Set up the Sync Health Shortcut first.'),
         h('div', {}, h('a', { class: 'text-button', href: SYNC_HEALTH }, 'Sync Health'))));
   }

@@ -1,0 +1,374 @@
+{
+ "dev_notes": "MET values from the 2024 Adult Compendium of Physical Activities (Herrmann et al., 2024), read from its tracking guide. Each activity keeps its 2024 code and description, so it can be checked. The app shows only name and group. kcal = (MET - 1) x body kg x hours: net of resting, like Apple Health active energy.",
+ "source": {
+  "title": "2024 Adult Compendium of Physical Activities",
+  "citation": "Herrmann SD, Willis EA, Ainsworth BE, et al. 2024 Adult Compendium of Physical Activities: A third update of the energy costs of human activities. Journal of Sport and Health Science 2024;13(1):6-12. doi:10.1016/j.jshs.2023.10.010",
+  "url": "https://pacompendium.com/adult-compendium/",
+  "table": "https://pacompendium.com/wp-content/uploads/2025/02/4_2024_adult-compendium-tracking-guide-1-2024.pdf",
+  "checked": "2026-10-23"
+ },
+ "groups": [
+  {
+   "id": "walking",
+   "name": "Walking"
+  },
+  {
+   "id": "running",
+   "name": "Running"
+  },
+  {
+   "id": "cycling",
+   "name": "Cycling"
+  },
+  {
+   "id": "gym",
+   "name": "Gym"
+  },
+  {
+   "id": "sports",
+   "name": "Sports"
+  },
+  {
+   "id": "swimming",
+   "name": "Swimming"
+  }
+ ],
+ "activities": [
+  {
+   "id": "17190",
+   "group": "walking",
+   "name": "Walk, moderate pace",
+   "met": 3.8,
+   "compendium": "Walking, 2.8 to 3.4 mph, level, moderate pace, firm surface"
+  },
+  {
+   "id": "17200",
+   "group": "walking",
+   "name": "Walk, brisk",
+   "met": 4.8,
+   "compendium": "Walking, 3.5 to 3.9 mph, level, brisk, firm surface, walking for exercise"
+  },
+  {
+   "id": "17220",
+   "group": "walking",
+   "name": "Walk, very brisk",
+   "met": 5.5,
+   "compendium": "Walking, 4.0 to 4.4 mph (6.4 to 7.0 km/h), level, firm surface, very brisk pace"
+  },
+  {
+   "id": "17165",
+   "group": "walking",
+   "name": "Dog walk",
+   "met": 3.0,
+   "compendium": "Walking the dog"
+  },
+  {
+   "id": "17080",
+   "group": "walking",
+   "name": "Hike",
+   "met": 6.0,
+   "compendium": "Hiking, cross country"
+  },
+  {
+   "id": "17131",
+   "group": "walking",
+   "name": "Stair climbing",
+   "met": 6.8,
+   "compendium": "Stair climbing, general"
+  },
+  {
+   "id": "12020",
+   "group": "running",
+   "name": "Jog",
+   "met": 7.5,
+   "compendium": "Jogging, general, self-selected pace"
+  },
+  {
+   "id": "12030",
+   "group": "running",
+   "name": "Run, 12 min a mile",
+   "met": 8.5,
+   "compendium": "Running, 5.0 to 5.2 mph (12 min/mile)"
+  },
+  {
+   "id": "12050",
+   "group": "running",
+   "name": "Run, 10 min a mile",
+   "met": 9.3,
+   "compendium": "Running, 6-6.3 mph (10 min/mile)"
+  },
+  {
+   "id": "12060",
+   "group": "running",
+   "name": "Run, 9 min a mile",
+   "met": 10.5,
+   "compendium": "Running, 6.7 mph (9 min/mile)"
+  },
+  {
+   "id": "12080",
+   "group": "running",
+   "name": "Run, 8 min a mile",
+   "met": 11.8,
+   "compendium": "Running, 7.5 mph (8 min/mile)"
+  },
+  {
+   "id": "12100",
+   "group": "running",
+   "name": "Run, 7 min a mile",
+   "met": 12.5,
+   "compendium": "Running, 8.6 mph (7 min/mile)"
+  },
+  {
+   "id": "01015",
+   "group": "cycling",
+   "name": "Cycle, easy",
+   "met": 4.3,
+   "compendium": "Bicycling, self-selected easy pace"
+  },
+  {
+   "id": "01016",
+   "group": "cycling",
+   "name": "Cycle, moderate",
+   "met": 7.0,
+   "compendium": "Bicycling, self-selected moderate pace"
+  },
+  {
+   "id": "01017",
+   "group": "cycling",
+   "name": "Cycle, hard",
+   "met": 9.0,
+   "compendium": "Bicycling, self-selected vigorous pace"
+  },
+  {
+   "id": "01200",
+   "group": "cycling",
+   "name": "Exercise bike",
+   "met": 6.8,
+   "compendium": "Bicycling, stationary, general"
+  },
+  {
+   "id": "01270",
+   "group": "cycling",
+   "name": "Spin class",
+   "met": 9.0,
+   "compendium": "Bicycling, stationary, RPM/Spin bike class"
+  },
+  {
+   "id": "02054",
+   "group": "gym",
+   "name": "Weights, general",
+   "met": 3.5,
+   "compendium": "Resistance (weight) training, multiple exercises, 8-15 reps at varied resistance"
+  },
+  {
+   "id": "02050",
+   "group": "gym",
+   "name": "Weights, heavy",
+   "met": 6.0,
+   "compendium": "Resistance (weight lifting - free weight, nautilus or universal-type), power lifting or body building, vigorous effort"
+  },
+  {
+   "id": "02035",
+   "group": "gym",
+   "name": "Circuit training, moderate",
+   "met": 5.0,
+   "compendium": "Circuit training, moderate effort"
+  },
+  {
+   "id": "02040",
+   "group": "gym",
+   "name": "Circuit training, hard",
+   "met": 7.5,
+   "compendium": "Circuit training, including kettlebells, some aerobic movement with minimal rest, general, vigorous intensity"
+  },
+  {
+   "id": "02210",
+   "group": "gym",
+   "name": "HIIT, moderate",
+   "met": 7.0,
+   "compendium": "High intensity interval exercise, moderate effort"
+  },
+  {
+   "id": "02214",
+   "group": "gym",
+   "name": "HIIT, hard",
+   "met": 11.0,
+   "compendium": "High intensity interval exercise, burpees, mountain climbers, squat jumps, Tabata, vigorous effort"
+  },
+  {
+   "id": "02048",
+   "group": "gym",
+   "name": "Cross trainer",
+   "met": 5.0,
+   "compendium": "Elliptical trainer, moderate effort"
+  },
+  {
+   "id": "02071",
+   "group": "gym",
+   "name": "Rowing machine, moderate",
+   "met": 5.0,
+   "compendium": "Rowing, stationary ergometer, general, <100 watts, moderate effort"
+  },
+  {
+   "id": "02070",
+   "group": "gym",
+   "name": "Rowing machine, hard",
+   "met": 7.3,
+   "compendium": "Rowing, stationary ergometer, general, vigorous effort"
+  },
+  {
+   "id": "02020",
+   "group": "gym",
+   "name": "Calisthenics, hard",
+   "met": 7.5,
+   "compendium": "Calisthenics (e.g., pushups, sit ups, pull-ups, jumping jacks, burpees, battling ropes), vigorous effort"
+  },
+  {
+   "id": "02150",
+   "group": "gym",
+   "name": "Yoga",
+   "met": 2.3,
+   "compendium": "Yoga, Hatha"
+  },
+  {
+   "id": "02185",
+   "group": "gym",
+   "name": "Yoga, vinyasa",
+   "met": 2.7,
+   "compendium": "Yoga, Vinyasa"
+  },
+  {
+   "id": "02105",
+   "group": "gym",
+   "name": "Pilates",
+   "met": 2.8,
+   "compendium": "Pilates, general"
+  },
+  {
+   "id": "02310",
+   "group": "gym",
+   "name": "Zumba",
+   "met": 6.5,
+   "compendium": "Zumba, group class"
+  },
+  {
+   "id": "15610",
+   "group": "sports",
+   "name": "Football, casual",
+   "met": 7.0,
+   "compendium": "Soccer, casual, general"
+  },
+  {
+   "id": "15605",
+   "group": "sports",
+   "name": "Football, match",
+   "met": 9.5,
+   "compendium": "Soccer, competitive"
+  },
+  {
+   "id": "15055",
+   "group": "sports",
+   "name": "Basketball",
+   "met": 7.5,
+   "compendium": "Basketball, general"
+  },
+  {
+   "id": "15030",
+   "group": "sports",
+   "name": "Badminton",
+   "met": 5.5,
+   "compendium": "Badminton, social singles and doubles, general"
+  },
+  {
+   "id": "15675",
+   "group": "sports",
+   "name": "Tennis",
+   "met": 6.8,
+   "compendium": "Tennis, general, moderate effort"
+  },
+  {
+   "id": "15652",
+   "group": "sports",
+   "name": "Squash",
+   "met": 7.3,
+   "compendium": "Squash, general"
+  },
+  {
+   "id": "15660",
+   "group": "sports",
+   "name": "Table tennis",
+   "met": 4.0,
+   "compendium": "Table tennis, ping pong"
+  },
+  {
+   "id": "15430",
+   "group": "sports",
+   "name": "Martial arts",
+   "met": 10.3,
+   "compendium": "Martial Arts, different types, moderate pace (e.g., judo, jujitsu, karate, kick boxing, tae kwon do, tai-bo, Muay Thai boxing)"
+  },
+  {
+   "id": "15110",
+   "group": "sports",
+   "name": "Boxing, bag",
+   "met": 5.8,
+   "compendium": "Boxing, punching bag"
+  },
+  {
+   "id": "15533",
+   "group": "sports",
+   "name": "Climbing",
+   "met": 8.0,
+   "compendium": "Rock or mountain climbing"
+  },
+  {
+   "id": "15551",
+   "group": "sports",
+   "name": "Skipping rope",
+   "met": 11.8,
+   "compendium": "Rope jumping, moderate pace, general, 100 to 120 skips/min, 2 foot skip, plain bounce"
+  },
+  {
+   "id": "15255",
+   "group": "sports",
+   "name": "Golf",
+   "met": 4.5,
+   "compendium": "Golf, general"
+  },
+  {
+   "id": "03025",
+   "group": "sports",
+   "name": "Dancing",
+   "met": 4.5,
+   "compendium": "Ethnic or cultural dancing (e.g. Greek, Middle Eastern, hula, salsa, merengue, bamba y plena, flamenco, belly, and swing)"
+  },
+  {
+   "id": "18240",
+   "group": "swimming",
+   "name": "Swim, easy lengths",
+   "met": 5.8,
+   "compendium": "Swimming laps, freestyle, slow, recreational"
+  },
+  {
+   "id": "18230",
+   "group": "swimming",
+   "name": "Swim, fast lengths",
+   "met": 9.8,
+   "compendium": "Swimming laps, freestyle, fast, vigorous effort"
+  },
+  {
+   "id": "18265",
+   "group": "swimming",
+   "name": "Breaststroke",
+   "met": 5.3,
+   "compendium": "Swimming breaststroke, recreational"
+  },
+  {
+   "id": "18310",
+   "group": "swimming",
+   "name": "Swim, leisurely",
+   "met": 6.0,
+   "compendium": "Swimming, leisurely, not lap swimming, general"
+  }
+ ]
+}

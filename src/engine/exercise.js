@@ -28,3 +28,32 @@ export function dayExercise({ activity = [], workouts = [], date }) {
   if (!own.length) return { kcal: 0, source: null, estimated: false };
   return { kcal: own.reduce((s, w) => s + (w.kcal ?? 0), 0), source: 'workouts', estimated: own.some((w) => w.source === 'manual') };
 }
+
+/** "~240 kcal: (4.8 MET − 1) × 72.4 kg × 0.5 h." How a manual workout's kcal are counted. */
+export function metText({ met, weightGrams, minutes }) {
+  const kcal = metKcal({ met, weightGrams, minutes });
+  const kg = (Math.round(weightGrams / 100) / 10).toLocaleString('en-GB');
+  const hours = (Math.round((minutes / 60) * 100) / 100).toLocaleString('en-GB');
+  return `~${kcal.toLocaleString('en-GB')} kcal: (${met.toLocaleString('en-GB')} MET − 1) × ${kg} kg × ${hours} h.`;
+}
+
+/**
+ * A workout you add yourself: an activity from data/activities.json and minutes, at your latest
+ * weight. Its kcal are an estimate ("~"). Returns { row } or { error } (what to do, as a sentence).
+ */
+export function manualWorkout({ id, date, activity, minutes, weightGrams }) {
+  if (!activity) return { error: 'Pick an activity.' };
+  if (!(weightGrams > 0)) return { error: 'Add a weight first: the kcal depend on it.' };
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) return { error: 'Enter minutes from 1 to 1,440.' };
+  return {
+    row: {
+      id, date, start: null, type: activity.name, minutes, kcal: metKcal({ met: activity.met, weightGrams, minutes }),
+      source: 'manual', activityId: activity.id, deletedAt: null,
+    },
+  };
+}
+
+/** A day's live workouts, Health's first, then in the order added. */
+export const workoutsOn = (workouts, date) => workouts
+  .filter((w) => isLive(w) && w.date === date)
+  .sort((a, b) => (a.source === b.source ? (a.start ?? '').localeCompare(b.start ?? '') : a.source === 'health' ? -1 : 1));

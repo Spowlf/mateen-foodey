@@ -2,7 +2,7 @@
 // The trend is worked out from the readings each time and never stored, so it's kept as a fraction
 // of a gram and rounded only for display.
 
-import { addDays, formatDay } from './dates.js';
+import { addDays, formatDay, partsFromIso } from './dates.js';
 import { isLive } from './entries.js';
 
 export const TREND_ALPHA = 0.1;
@@ -160,4 +160,30 @@ export function trendChangeText(points, unit = 'kg') {
   const size = formatWeightChange(change, unit);
   const since = `since ${formatDay(known[0].date)}`;
   return Number(size.split(' ')[0]) === 0 ? `Steady ${since}.` : `${change < 0 ? 'Down' : 'Up'} ${size} ${since}.`;
+}
+
+const LB_PER_ST = 14;
+const attr = (line, name) => new RegExp(`\\b${name}="([^"]*)"`).exec(line)?.[1] ?? null;
+
+/**
+ * One body weight from a line of the Health app's export.xml, or null for any other line:
+ * { date (the local date it was weighed, from the record's own offset), at (ms), grams }.
+ */
+export function healthWeightRecord(line) {
+  if (!line.includes('HKQuantityTypeIdentifierBodyMass"') || !line.includes('<Record')) return null;
+  const value = Number(attr(line, 'value'));
+  const unit = attr(line, 'unit');
+  const parts = partsFromIso(attr(line, 'startDate'));
+  if (!Number.isFinite(value) || value <= 0 || !parts) return null;
+  const perUnit = { kg: 1000, g: 1, lb: GRAMS_PER_LB, st: GRAMS_PER_LB * LB_PER_ST }[unit];
+  if (!perUnit) return null;
+  const grams = Math.round(value * perUnit);
+  return grams >= 20_000 && grams <= 400_000 ? { date: parts.date, at: parts.at, grams } : null;
+}
+
+/** One reading a day, the latest weighed that day, oldest day first. */
+export function latestPerDay(records) {
+  const byDate = new Map();
+  for (const r of records) if (!byDate.has(r.date) || r.at >= byDate.get(r.date).at) byDate.set(r.date, r);
+  return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
 }
