@@ -171,7 +171,18 @@ export function renderSettings(root, { repo, onConnected }) {
       if (!connected) repo.saveConnectionDraft({ apiBase: address.value, token: token.value }).catch(() => {});
     };
     const address = h('input', { class: 'input', type: 'url', inputmode: 'url', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', value: start.apiBase ?? '', placeholder: 'mateen-foodey.example.workers.dev', oninput: keep });
-    const token = h('input', { class: 'input', type: 'password', autocomplete: 'off', value: start.token ?? '', oninput: keep });
+    // Not a password field: Safari's AutoFill matches saved passwords by site, and Mateen Money on the
+    // same github.io site has its own token, which it would offer here. Masked by CSS instead.
+    const token = h('input', {
+      class: 'input masked', type: 'text', id: 'api-token', name: 'mateen-foodey-api-token', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off',
+      spellcheck: 'false', 'data-1p-ignore': true, 'data-lpignore': 'true', value: start.token ?? '', oninput: keep,
+    });
+    const showToken = h('button', { type: 'button', class: 'text-button', 'aria-pressed': 'false', onclick: () => {
+      const shown = token.classList.toggle('masked') === false;
+      showToken.setAttribute('aria-pressed', String(shown));
+      showToken.textContent = shown ? 'Hide' : 'Show';
+    } }, 'Show');
+    const tokenHint = h('span', { class: 'field-hint', 'aria-live': 'polite' });
     let busy = false;
     const connect = h('button', {
       type: 'button', class: connected ? 'text-button' : 'button primary',
@@ -185,7 +196,10 @@ export function renderSettings(root, { repo, onConnected }) {
       },
     });
     function update() {
-      const missing = !address.value.trim() ? 'Enter the Address' : !token.value.trim() ? 'Enter the Token' : null;
+      const t = token.value.trim();
+      // Enough to compare with the Mac's copy without showing the whole token.
+      tokenHint.textContent = t ? `${t.length} characters, ending in “${t.slice(-4)}”.` : 'Copy it on the Mac and paste it here: the clipboard is shared between your devices.';
+      const missing = !address.value.trim() ? 'Enter the Address' : !t ? 'Enter the Token' : null;
       connect.disabled = busy || !!missing;
       connect.textContent = busy ? 'Connecting' : missing ?? (connected ? 'Connect Again' : 'Connect');
     }
@@ -193,7 +207,10 @@ export function renderSettings(root, { repo, onConnected }) {
     return h('section', { class: 'section', 'aria-label': 'Backend' },
       h('h2', { class: 'subhead' }, 'Backend'),
       field('Address', address),
-      field('Token', token, 'The API token you set on the Worker. Copy it on the Mac and paste it here: the clipboard is shared between your devices.'),
+      h('div', { class: 'field' },
+        h('label', { class: 'field-label', for: 'api-token' }, 'Token'),
+        h('div', { class: 'add-box' }, token, showToken),
+        tokenHint),
       connected ? h('div', {}, connect) : connect,
       connected && h('p', { class: 'reason' }, `${syncedPhrase(S.lastSyncedAt)}.`));
   }

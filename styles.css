@@ -399,6 +399,9 @@ a.text-button { display: inline-flex; align-items: center; text-decoration: none
   background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
   background-size: 6px 6px; background-repeat: no-repeat;
 }
+/* The API token, hidden like a password without being a password field (see settings.js). */
+.input.masked { -webkit-text-security: disc; text-security: disc; }
+.add-box .text-button { margin: 0; min-height: var(--touch); }
 .row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3); }
 .row-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s3); }
 /* A food's serving: its name, its grams and Remove on one row. */
