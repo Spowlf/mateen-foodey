@@ -5,6 +5,7 @@
 import { h, fill, field, chips, toast } from './dom.js';
 import { runAction, offlineLabel, keepUnits } from './format.js';
 import { exportBackup, exportCsv, importBackup } from './backup.js';
+import { ApiError } from '../errors.js';
 import {
   today, targetRowFor, targetFromSettings, settingProblem, typedWhole, maintenanceEstimate, adaptiveKcal, dailyChangeKcal,
   formatKcal, syncedPhrase, goalPhrase, MEALS, mealName, DEFAULT_SETTINGS, GOAL_RATES_G, DEFAULT_FLOOR_KCAL,
@@ -176,6 +177,8 @@ export function renderSettings(root, { repo, onConnected }) {
     const token = h('input', {
       class: 'input masked', type: 'text', id: 'api-token', name: 'mateen-foodey-api-token', autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off',
       spellcheck: 'false', 'data-1p-ignore': true, 'data-lpignore': 'true', value: start.token ?? '', oninput: keep,
+      // A tap selects the whole token, so a paste replaces it instead of joining an old one hidden behind the dots.
+      onfocus: () => setTimeout(() => token.select(), 0),
     });
     const showToken = h('button', { type: 'button', class: 'text-button', 'aria-pressed': 'false', onclick: () => {
       const shown = token.classList.toggle('masked') === false;
@@ -189,7 +192,15 @@ export function renderSettings(root, { repo, onConnected }) {
       onclick: async () => {
         busy = true;
         update();
-        const ok = await runAction(() => repo.connect({ apiBase: address.value, token: token.value }));
+        let ok = null;
+        try {
+          ok = await repo.connect({ apiBase: address.value, token: token.value });
+        } catch (err) {
+          const t = token.value.trim();
+          // The backend refused the token: say what was sent, so a wrong or doubled paste shows.
+          if (err instanceof ApiError && err.status === 401) toast(`Nothing changed: the backend refused this token (${t.length} characters, ending in “${t.slice(-4)}”). Check that matches your Mac, then tap the field and paste it again.`);
+          else await runAction(() => { throw err; });
+        }
         busy = false;
         update();
         if (ok !== null) { toast('Connected. Everything is synced.'); onConnected?.(); render(); }
