@@ -163,22 +163,37 @@ export function renderSettings(root, { repo, onConnected }) {
   }
 
   function backendSection() {
-    const address = h('input', { class: 'input', type: 'url', inputmode: 'url', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', value: S.connection?.apiBase ?? '', placeholder: 'https://mateen-foodey.example.workers.dev' });
-    const token = h('input', { class: 'input', type: 'password', autocomplete: 'off', value: S.connection?.token ?? '' });
     const connected = repo.connected();
+    const start = S.connection ?? S.connectionDraft ?? {};
+    const keep = () => {
+      update();
+      // Only before connecting: afterwards the saved connection is what counts.
+      if (!connected) repo.saveConnectionDraft({ apiBase: address.value, token: token.value }).catch(() => {});
+    };
+    const address = h('input', { class: 'input', type: 'url', inputmode: 'url', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', value: start.apiBase ?? '', placeholder: 'mateen-foodey.example.workers.dev', oninput: keep });
+    const token = h('input', { class: 'input', type: 'password', autocomplete: 'off', value: start.token ?? '', oninput: keep });
+    let busy = false;
     const connect = h('button', {
       type: 'button', class: connected ? 'text-button' : 'button primary',
       onclick: async () => {
-        connect.disabled = true;
+        busy = true;
+        update();
         const ok = await runAction(() => repo.connect({ apiBase: address.value, token: token.value }));
-        connect.disabled = false;
+        busy = false;
+        update();
         if (ok !== null) { toast('Connected. Everything is synced.'); onConnected?.(); render(); }
       },
-    }, connected ? 'Connect Again' : 'Connect');
+    });
+    function update() {
+      const missing = !address.value.trim() ? 'Enter the Address' : !token.value.trim() ? 'Enter the Token' : null;
+      connect.disabled = busy || !!missing;
+      connect.textContent = busy ? 'Connecting' : missing ?? (connected ? 'Connect Again' : 'Connect');
+    }
+    update();
     return h('section', { class: 'section', 'aria-label': 'Backend' },
       h('h2', { class: 'subhead' }, 'Backend'),
       field('Address', address),
-      field('Token', token, 'The API token you set on the Worker.'),
+      field('Token', token, 'The API token you set on the Worker. Copy it on the Mac and paste it here: the clipboard is shared between your devices.'),
       connected ? h('div', {}, connect) : connect,
       connected && h('p', { class: 'reason' }, `${syncedPhrase(S.lastSyncedAt)}.`));
   }

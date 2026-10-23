@@ -4,7 +4,8 @@
 // state and change it only through this module.
 
 import { SYNCED } from './schema.js';
-import { createApi } from './api.js';
+import { createApi, normaliseApiBase } from './api.js';
+import { ApiError } from '../errors.js';
 import { createDraftStore } from './drafts.js';
 import { today, logLines, adoptFoods, copyEntries } from '../engine/index.js';
 
@@ -17,6 +18,9 @@ const PARSE_TIMEOUT_MS = 60_000;
 export function createRepo({ db, fetch, now = () => Date.now(), newId = () => crypto.randomUUID() }) {
   const state = Object.fromEntries(SYNCED.map((name) => [name, []]));
   state.connection = null;
+  // What's typed into Settings before connecting, kept on this phone so a reload (iOS often reloads
+  // a home screen app you switched away from to copy the token) doesn't empty the form.
+  state.connectionDraft = null;
   state.rev = 0;
   state.lastSyncedAt = null;
 
@@ -67,9 +71,10 @@ export function createRepo({ db, fetch, now = () => Date.now(), newId = () => cr
 
     /** Reads the local copy in one go (one IndexedDB transaction, not one per table). */
     async load() {
-      const { tables, meta } = await db.readAll(SYNCED, ['connection', 'rev', 'lastSyncedAt']);
+      const { tables, meta } = await db.readAll(SYNCED, ['connection', 'connectionDraft', 'rev', 'lastSyncedAt']);
       for (const name of SYNCED) state[name] = tables[name] ?? [];
       state.connection = meta.connection ?? null;
+      state.connectionDraft = meta.connectionDraft ?? null;
       state.rev = meta.rev ?? 0;
       state.lastSyncedAt = meta.lastSyncedAt ?? null;
     },
@@ -96,7 +101,9 @@ export function createRepo({ db, fetch, now = () => Date.now(), newId = () => cr
      * replaces the local copy. A failed check changes nothing.
      */
     async connect({ apiBase, token }) {
-      const connection = { apiBase: apiBase.trim().replace(/\/+$/, ''), token: token.trim() };
+      const connection = { apiBase: normaliseApiBase(apiBase), token: String(token ?? '').trim() };
+      if (!connection.apiBase) throw new ApiError(0, 'Nothing changed: enter the backend address.');
+      if (!connection.token) throw new ApiError(0, 'Nothing changed: enter the token.');
       const data = await createApi({ fetch, connection: () => connection }).get('/sync?since=0');
       if (state.connection?.apiBase !== connection.apiBase) {
         await db.clear(SYNCED);
@@ -104,12 +111,20 @@ export function createRepo({ db, fetch, now = () => Date.now(), newId = () => cr
       }
       state.connection = connection;
       await db.setMeta('connection', connection);
+      state.connectionDraft = null;
+      await db.deleteMeta('connectionDraft');
       await apply(data.changes, { all: true });
       state.rev = data.rev;
       state.lastSyncedAt = now();
       await db.setMeta('rev', state.rev);
       await db.setMeta('lastSyncedAt', state.lastSyncedAt);
       changed();
+    },
+
+    /** Keeps what's typed into Settings' backend fields until it connects. */
+    async saveConnectionDraft(draft) {
+      state.connectionDraft = draft;
+      await db.setMeta('connectionDraft', draft);
     },
 
     /** Adds or changes one row: the fields sent replace the stored ones. */

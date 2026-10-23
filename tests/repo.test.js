@@ -109,3 +109,23 @@ test('repo: listeners hear about a save, and a sync with nothing new stays quiet
   await repo.saveRow('pots', 'p1', { name: 'Pan', grams: 900 });
   assert.equal(heard, 1);
 });
+
+test('connecting: the typed address and token survive a reload until they connect, and an address without https:// works', async () => {
+  const { normaliseApiBase } = await import('../src/db/api.js');
+  assert.deepEqual([' api.example.com/ ', 'https://api.example.com//', 'http://localhost:8787', ''].map(normaliseApiBase),
+    ['https://api.example.com', 'https://api.example.com', 'http://localhost:8787', '']);
+  const w = makeWorker();
+  const db = memoryDb();
+  const first = createRepo({ db, fetch: w.fetch, now: () => w.now });
+  await first.load();
+  await first.saveConnectionDraft({ apiBase: 'api.example.com', token: TOKEN });
+  const reloaded = createRepo({ db, fetch: w.fetch, now: () => w.now });   // iOS reloaded the app
+  await reloaded.load();
+  assert.deepEqual(reloaded.state.connectionDraft, { apiBase: 'api.example.com', token: TOKEN });
+  await assert.rejects(reloaded.connect({ apiBase: ' ', token: TOKEN }), /enter the backend address/);
+  await assert.rejects(reloaded.connect({ apiBase: BASE, token: '' }), /enter the token/);
+  await reloaded.connect(reloaded.state.connectionDraft);
+  assert.equal(reloaded.state.connection.apiBase, BASE);
+  assert.equal(reloaded.state.connectionDraft, null);
+  assert.equal(db.meta.has('connectionDraft'), false);
+});
