@@ -4,6 +4,18 @@
 import { TABLES, SYNCED } from '../../src/engine/tables.js';
 
 const q = (name) => `"${name}"`;
+// D1 allows 100 bound values a statement, and on the Free plan 50 calls a request, where a batch is
+// one call. So reads of many rows go as several statements in one batch.
+export const MAX_PARAMS = 100;
+
+/** list in pieces of at most MAX_PARAMS. */
+export function chunks(list) {
+  const out = [];
+  for (let i = 0; i < list.length; i += MAX_PARAMS) out.push(list.slice(i, i + MAX_PARAMS));
+  return out;
+}
+
+export const marks = (list) => list.map(() => '?').join(', ');
 const NEXT_REV = "UPDATE meta SET value = value + 1 WHERE key = 'rev' RETURNING value";
 const CURRENT_REV = "SELECT value FROM meta WHERE key = 'rev'";
 
@@ -43,6 +55,20 @@ export function createStore(db) {
     async all(name, where = '1 = 1', ...params) {
       const { results } = await db.prepare(`SELECT * FROM ${q(name)} WHERE ${where}`).bind(...params).all();
       return results.map((r) => fromDb(name, r));
+    },
+
+    /** Rows by id from several tables in one call: { table: [id] } → { table: Map(id → row) }, deleted rows too. */
+    async getMany(wanted) {
+      const out = {};
+      const asks = [];
+      for (const [name, ids] of Object.entries(wanted)) {
+        out[name] = new Map();
+        for (const part of chunks([...new Set(ids.filter((id) => id != null))])) asks.push({ name, part });
+      }
+      if (!asks.length) return out;
+      const results = await db.batch(asks.map(({ name, part }) => db.prepare(`SELECT * FROM ${q(name)} WHERE id IN (${marks(part)})`).bind(...part)));
+      asks.forEach(({ name }, i) => { for (const r of results[i].results) out[name].set(r.id, fromDb(name, r)); });
+      return out;
     },
 
     live(name) {

@@ -72,7 +72,7 @@ Right after eating, phone in one hand. A regular food or meal takes two taps; an
 
 ## Exercise and Health
 
-- **Sync Health Shortcut**: `POST /health { date, activeKcal, steps, weightKg, workouts }` replaces the date's activity, adds each workout once (by start and type) and saves the weight, never replacing one typed in the app. Runs after the morning alarm, sending yesterday and today. `GET /health/weights?from=&to=` (at most 31 days) lists typed weights, which the Shortcut writes to Health on days Health has none. Setup: `docs/shortcuts.md`.
+- **Sync Health Shortcut**: `POST /health { date, activeKcal, steps, weightKg, workouts }` replaces the date's activity, adds each workout once (by start and type; one you deleted stays deleted) and saves the weight, never replacing one typed in the app. Runs after the morning alarm, sending yesterday and today. `GET /health/weights?from=&to=` (at most 31 days) lists typed weights, which the Shortcut writes to Health on days Health has none. Setup: `docs/shortcuts.md`.
 - **Manual exercise**: an activity from `data/activities.json` (Compendium MET values) and minutes. kcal = (MET − 1) × latest body kg × hours, marked "~". Not added on days with Health active energy.
 - **Weight history**: `scripts/import-health-weights.js` uploads the Health export's weights once.
 

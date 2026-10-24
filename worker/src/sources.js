@@ -4,9 +4,12 @@
 // A search asked again within 7 days is answered from searchCache and sourceFoods without asking
 // Open Food Facts or USDA. A barcode is looked up again after 30 days. A food fetched again
 // refreshes your own copy of it, unless you've edited it (userEdited).
+// Several searches at once (sentence logging's items) take the same few calls to D1 as one, since
+// the Free plan allows 50 a request: their reads go together in one batch.
 
 import { fromOff, fromUsda, normaliseName, nameWords, rankFoods, sourceKey } from '../../src/engine/index.js';
 import { refuse } from './http.js';
+import { fromDb, chunks, marks } from './store.js';
 
 const DAY_MS = 86_400_000;
 export const SEARCH_FRESH_MS = 7 * DAY_MS;
@@ -41,10 +44,11 @@ export function cacheStatement(db, food, now) {
       food.state, JSON.stringify(food.per100g), food.carbsIncludeFibre ? 1 : 0, JSON.stringify(food.servings ?? []), now);
 }
 
+/** Cached source foods by id, in their order, in one call. */
 async function cached(db, ids) {
   if (!ids.length) return [];
-  const { results } = await db.prepare(`SELECT * FROM sourceFoods WHERE id IN (${ids.map(() => '?').join(', ')})`).bind(...ids).all();
-  const byId = new Map(results.map((r) => [r.id, fromCache(r)]));
+  const out = await db.batch(chunks([...new Set(ids)]).map((part) => db.prepare(`SELECT * FROM sourceFoods WHERE id IN (${marks(part)})`).bind(...part)));
+  const byId = new Map(out.flatMap((r) => r.results).map((r) => [r.id, fromCache(r)]));
   return ids.map((id) => byId.get(id)).filter(Boolean);
 }
 
@@ -75,21 +79,22 @@ async function fetchUsda(ctx, env, query) {
 }
 
 /**
- * Your own foods that came from these source foods, brought up to date with them. A food you've
- * edited is never touched. Returns the rows to write.
+ * Your own foods that came from these source foods, brought up to date with them, in one call. A
+ * food you've edited is never touched. Returns the rows to write.
  */
 async function refreshedOwn(store, fresh) {
   const keys = new Map(fresh.map((f) => [sourceKey(f), f]));
   if (!keys.size) return [];
-  const own = await store.all('foods', `deletedAt IS NULL AND userEdited = 0 AND (source || ':' || sourceId) IN (${[...keys.keys()].map(() => '?').join(', ')})`, ...keys.keys());
-  const out = [];
-  for (const food of own) {
+  const out = await store.db.batch(chunks([...keys.keys()]).map((part) => store.db
+    .prepare(`SELECT * FROM foods WHERE deletedAt IS NULL AND userEdited = 0 AND (source || ':' || sourceId) IN (${marks(part)})`).bind(...part)));
+  const rows = [];
+  for (const food of out.flatMap((r) => r.results).map((r) => fromDb('foods', r))) {
     const f = keys.get(sourceKey(food));
     const next = { name: f.name, brand: f.brand, barcode: f.barcode, per100g: f.per100g, carbsIncludeFibre: f.carbsIncludeFibre ? 1 : 0, servings: f.servings };
     const changed = Object.entries(next).some(([k, v]) => JSON.stringify(food[k]) !== JSON.stringify(v));
-    if (changed) out.push({ ...food, ...next, fetchedAt: f.fetchedAt });
+    if (changed) rows.push({ ...food, ...next, fetchedAt: f.fetchedAt });
   }
-  return out;
+  return rows;
 }
 
 /** Saves fetched source foods to the cache (and refreshes your copies of them) in one write. */
@@ -101,37 +106,21 @@ async function keep(ctx, foods, extra = []) {
   return stamped;
 }
 
-/** One source's foods for a normalised query: from searchCache when fresh, else fetched and cached. */
-async function searchSource(ctx, env, source, queryNorm) {
-  const db = ctx.store.db;
-  const id = `${source}:${queryNorm}`;
-  const hit = await db.prepare('SELECT * FROM searchCache WHERE id = ?').bind(id).first();
-  if (hit && ctx.now - hit.fetchedAt < SEARCH_FRESH_MS) return cached(db, JSON.parse(hit.sourceFoodIds));
-
-  const fetched = (source === 'off' ? await fetchOff(ctx, queryNorm) : await fetchUsda(ctx, env, queryNorm)).filter(usable);
-  const unique = [...new Map(fetched.map((f) => [sourceKey(f), f])).values()];
-  const remember = db.prepare(`INSERT INTO searchCache (id, source, queryNorm, sourceFoodIds, fetchedAt) VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT (id) DO UPDATE SET sourceFoodIds = excluded.sourceFoodIds, fetchedAt = excluded.fetchedAt`)
-    .bind(id, source, queryNorm, JSON.stringify(unique.map(sourceKey)), ctx.now);
-  return keep(ctx, unique, [remember]);
+/** A statement for source foods whose names hold every word of query (from one source, or all), or null. */
+function wordsStatement(db, query, source = null) {
+  const words = nameWords(query);
+  if (!words.length) return null;
+  return db.prepare(`SELECT * FROM sourceFoods WHERE ${source ? 'source = ? AND ' : ''}${words.map(() => 'nameNorm LIKE ?').join(' AND ')} LIMIT 200`)
+    .bind(...(source ? [source] : []), ...words.map((w) => `%${w}%`));
 }
 
-/** CoFID foods (imported once) whose names hold every word. */
-async function searchCofid(db, query) {
-  const words = nameWords(query);
-  if (!words.length) return [];
-  const { results } = await db.prepare(`SELECT * FROM sourceFoods WHERE source = 'cofid' AND ${words.map(() => 'nameNorm LIKE ?').join(' AND ')} LIMIT 200`)
-    .bind(...words.map((w) => `%${w}%`)).all();
-  return results.map(fromCache);
-}
-
-/** Every cached source food whose name holds every word (for matching parsed items). */
-export async function searchCached(db, query) {
-  const words = nameWords(query);
-  if (!words.length) return [];
-  const { results } = await db.prepare(`SELECT * FROM sourceFoods WHERE ${words.map(() => 'nameNorm LIKE ?').join(' AND ')} LIMIT 200`)
-    .bind(...words.map((w) => `%${w}%`)).all();
-  return results.map(fromCache);
+/** For each query, every cached source food whose name holds every word, in one call (for matching parsed items). */
+export async function searchCachedMany(db, queries) {
+  const statements = queries.map((query) => wordsStatement(db, query));
+  const asked = statements.filter(Boolean);
+  const out = asked.length ? await db.batch(asked) : [];
+  let k = 0;
+  return statements.map((st) => (st ? out[k++].results.map(fromCache) : []));
 }
 
 /** Which sources are on: the sources setting, and USDA only with its key. */
@@ -141,23 +130,76 @@ export const sourcesOn = (settings, env) => ({
   usda: settings.sources?.usda !== false && !!env.USDA_API_KEY,
 });
 
+/** A searchCache row's statement: the source foods a query found. */
+const rememberStatement = (db, id, source, norm, foods, now) => db.prepare(`INSERT INTO searchCache (id, source, queryNorm, sourceFoodIds, fetchedAt) VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT (id) DO UPDATE SET sourceFoodIds = excluded.sourceFoodIds, fetchedAt = excluded.fetchedAt`)
+  .bind(id, source, norm, JSON.stringify(foods.map(sourceKey)), now);
+
 /**
- * GET /search?q=: CoFID, then Open Food Facts, then USDA, each best first and only foods whose
- * names hold every word. A source that can't be reached is left out and named in unavailable.
- * Returns { results: [Food], unavailable: ['off' | 'usda'] }.
+ * Searches for several queries ([{ query, state }]) at once: for each, CoFID, then Open Food Facts,
+ * then USDA, each best first and only foods whose names hold every word. A source that can't be
+ * reached is left out and named in unavailable. Four calls to D1 at most, however many queries:
+ * CoFID and the recent searches, the cached foods they found, then your foods and the write.
+ * Returns [{ results: [Food], unavailable: ['off' | 'usda'] }] in the queries' order.
  */
-export async function searchFoods(ctx, env, query, settings, { state = null } = {}) {
-  const queryNorm = normaliseName(query);
-  if (!queryNorm) return { results: [], unavailable: [] };
+export async function searchMany(ctx, env, queries, settings) {
+  const db = ctx.store.db;
   const on = sourcesOn(settings, env);
-  const unavailable = [];
-  const live = async (source) => {
-    if (!on[source]) return [];
-    try { return await searchSource(ctx, env, source, queryNorm); } catch { unavailable.push(source); return []; }
-  };
-  const [cofid, off, usda] = await Promise.all([on.cofid ? searchCofid(ctx.store.db, queryNorm) : [], live('off'), live('usda')]);
-  const results = [cofid, off, usda].flatMap((list) => rankFoods(queryNorm, list, { state }).slice(0, PER_SOURCE));
-  return { results, unavailable: unavailable.sort() };
+  const asks = queries.map(({ query, state = null }) => ({ norm: normaliseName(query), state }));
+  const norms = [...new Set(asks.map((a) => a.norm).filter(Boolean))];
+  const sources = ['off', 'usda'].filter((source) => on[source]);
+  const searches = norms.flatMap((norm) => sources.map((source) => ({ id: `${source}:${norm}`, source, norm })));
+
+  const cofidStatements = on.cofid ? norms.map((norm) => wordsStatement(db, norm, 'cofid')) : [];
+  const cacheStatements = chunks(searches.map((s) => s.id)).map((part) => db.prepare(`SELECT * FROM searchCache WHERE id IN (${marks(part)})`).bind(...part));
+  const reads = [...cofidStatements.filter(Boolean), ...cacheStatements];
+  const out = reads.length ? await db.batch(reads) : [];
+  let k = 0;
+  const cofid = new Map(cofidStatements.map((st, i) => [norms[i], st ? out[k++].results.map(fromCache) : []]));
+  const hits = new Map(out.slice(k).flatMap((r) => r.results)
+    .filter((row) => ctx.now - row.fetchedAt < SEARCH_FRESH_MS).map((row) => [row.id, JSON.parse(row.sourceFoodIds)]));
+
+  // Asked within 7 days: from the cache. Otherwise from the source itself.
+  const byKey = new Map((await cached(db, [...hits.values()].flat())).map((f) => [sourceKey(f), f]));
+  const found = new Map();
+  const unavailable = new Map(norms.map((norm) => [norm, []]));
+  const fetched = [];
+  const remembers = [];
+  await Promise.all(searches.map(async ({ id, source, norm }) => {
+    if (hits.has(id)) {
+      found.set(id, hits.get(id).map((key) => byKey.get(key)).filter(Boolean));
+      return;
+    }
+    try {
+      const list = (source === 'off' ? await fetchOff(ctx, norm) : await fetchUsda(ctx, env, norm)).filter(usable);
+      const unique = [...new Map(list.map((f) => [sourceKey(f), f])).values()];
+      found.set(id, unique);
+      fetched.push(...unique);
+      remembers.push(rememberStatement(db, id, source, norm, unique, ctx.now));
+    } catch {
+      unavailable.get(norm).push(source);
+    }
+  }));
+
+  if (fetched.length) {
+    const kept = await keep(ctx, [...new Map(fetched.map((f) => [sourceKey(f), f])).values()], remembers);
+    const stamped = new Map(kept.map((f) => [sourceKey(f), f]));
+    for (const [id, list] of found) if (!hits.has(id)) found.set(id, list.map((f) => stamped.get(sourceKey(f))));
+  } else if (remembers.length) {
+    await db.batch(remembers);
+  }
+
+  return asks.map(({ norm, state }) => {
+    if (!norm) return { results: [], unavailable: [] };
+    const lists = [cofid.get(norm) ?? [], found.get(`off:${norm}`) ?? [], found.get(`usda:${norm}`) ?? []];
+    return { results: lists.flatMap((list) => rankFoods(norm, list, { state }).slice(0, PER_SOURCE)), unavailable: unavailable.get(norm).sort() };
+  });
+}
+
+/** GET /search?q=: one query's { results, unavailable } (see searchMany). */
+export async function searchFoods(ctx, env, query, settings, { state = null } = {}) {
+  const [answer] = await searchMany(ctx, env, [{ query, state }], settings);
+  return answer;
 }
 
 /** A barcode: 8 to 14 digits. */

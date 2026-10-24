@@ -97,14 +97,13 @@ function tidy(row) {
   if (Array.isArray(row.servings)) row.servings = row.servings.map((s) => ({ ...s, label: String(s?.label ?? '').trim() }));
 }
 
-/** The stored row with the fields sent laid over it (a new row starts from the table's defaults). */
-async function merged(store, name, id, body) {
+/** The stored row (or undefined) with the fields sent laid over it (a new row starts from the table's defaults). */
+function merged(existing, name, id, body) {
   const { fields, defaults } = TABLES[name];
-  const existing = await store.get(name, id);
   const row = existing ? { ...existing } : { id, deletedAt: null, ...structuredClone(defaults) };
   for (const f of [...fields, 'deletedAt']) if (f in body) row[f] = body[f] ?? null;
   tidy(row);
-  return { existing, row };
+  return row;
 }
 
 /** A body whose id differs from the address is refused, so a row is never saved under the wrong id. */
@@ -135,7 +134,8 @@ function remember(entry, existing, foods, now) {
  * POST /batch { foods?: [row], entries?: [row], ... }: rows of any tables the app writes, in one
  * write, all or nothing ("Log 3 Items" saves new foods and their entries together). Each row has
  * its id and the fields to change. Every food, batch, recipe and pot a live row names must exist,
- * in the batch or already saved, so a backup of the data always restores.
+ * in the batch or already saved, so a backup of the data always restores. However many rows, it's
+ * three calls to D1 (the rows, what they name, the write), as the Free plan allows 50 a request.
  */
 export async function saveBatch(ctx, body) {
   const { store } = ctx;
@@ -147,41 +147,50 @@ export async function saveBatch(ctx, body) {
   }
   if (names.reduce((n, name) => n + body[name].length, 0) > MAX_BATCH_ROWS) throw refuse(`send at most ${MAX_BATCH_ROWS} rows at once.`);
 
-  const writes = {};
-  const before = {};
-  for (const name of SYNCED.filter((n) => names.includes(n))) {
-    writes[name] = [];
-    before[name] = new Map();
+  const order = SYNCED.filter((n) => names.includes(n));
+  for (const name of order) {
+    const seen = new Set();
     for (const b of body[name]) {
       if (!b || typeof b.id !== 'string' || !b.id) throw refuse('send each row with its id.');
-      if (before[name].has(b.id)) throw refuse('send each row once.');
-      const { existing, row } = await merged(store, name, b.id, b);
-      const problem = check(name, row);
-      if (problem) throw refuse(problem);
-      before[name].set(b.id, existing);
-      writes[name].push(row);
+      if (seen.has(b.id)) throw refuse('send each row once.');
+      seen.add(b.id);
     }
   }
+  const before = await store.getMany(Object.fromEntries(order.map((name) => [name, body[name].map((b) => b.id)])));
+
+  const writes = {};
+  for (const name of order) {
+    writes[name] = body[name].map((b) => {
+      const row = merged(before[name].get(b.id), name, b.id, b);
+      const problem = check(name, row);
+      if (problem) throw refuse(problem);
+      return row;
+    });
+  }
+
+  // Everything the live rows name that isn't in the batch, and the foods of entries (for food memory), in one call.
+  const inBatch = (target, id) => writes[target]?.some((r) => r.id === id);
+  const wanted = {};
+  const want = (target, id) => { if (id != null && !inBatch(target, id)) (wanted[target] ??= []).push(id); };
+  for (const [name, refs, target] of REFERENCES) for (const row of writes[name] ?? []) if (!row.deletedAt) refs(row).forEach((id) => want(target, id));
+  for (const e of writes.entries ?? []) want('foods', e.foodId);
+  const saved = await store.getMany(wanted);
 
   for (const [name, refs, target, what] of REFERENCES) {
     for (const row of writes[name] ?? []) {
       if (row.deletedAt) continue;
       for (const ref of refs(row)) {
-        if (ref == null || writes[target]?.some((r) => r.id === ref)) continue;
-        if (!(await store.get(target, ref))) throw refuse(`${what} that isn’t saved yet.`);
+        if (ref == null || inBatch(target, ref)) continue;
+        if (!saved[target]?.has(ref)) throw refuse(`${what} that isn’t saved yet.`);
       }
     }
   }
 
   if (writes.entries) {
     const sent = new Map((writes.foods ?? []).map((f) => [f.id, f]));
-    const foods = new Map(sent);
+    const foods = new Map([...(saved.foods ?? new Map()), ...sent]);
     const touched = new Set();
     for (const e of writes.entries) {
-      if (e.foodId && !foods.has(e.foodId)) {
-        const food = await store.get('foods', e.foodId);
-        if (food) foods.set(food.id, food);
-      }
       if (remember(e, before.entries.get(e.id), foods, ctx.now) && !sent.has(e.foodId)) touched.add(foods.get(e.foodId));
     }
     if (touched.size) (writes.foods ??= []).push(...touched);

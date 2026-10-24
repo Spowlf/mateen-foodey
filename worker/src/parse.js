@@ -10,7 +10,7 @@ import {
 } from '../../src/engine/index.js';
 import { askJson } from './claude.js';
 import { refuse, HttpError } from './http.js';
-import { searchCached, searchFoods, sourcesOn } from './sources.js';
+import { searchCachedMany, searchMany, sourcesOn } from './sources.js';
 import { settingsOf } from './rows.js';
 
 const MAX_TEXT = 1000;
@@ -19,6 +19,8 @@ const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const OWN_FOODS_IN_PROMPT = 30;
 const ALTERNATIVES = 5;
 const MAX_NAME = 200;
+// Each item can ask Open Food Facts and USDA, and the Free plan allows 50 requests out of the Worker a request.
+const MAX_ITEMS = 20;
 const STATES = new Set(['raw', 'cooked', 'asSold']);
 
 const PARSE_SYSTEM = `You read what someone in the UK ate and list each food as a separate item. Give no nutrition.
@@ -63,17 +65,26 @@ function input(body) {
 
 const ownList = (foods) => foods.map((f) => `- ${f.name}${f.usualGrams ? ` (usual ${f.usualGrams} g)` : ''}`).join('\n');
 
-/** The best match for an item and the next few: your foods, then the cache, then the sources. */
-async function matchItem(ctx, item, own, settings, on) {
-  const term = item.searchTerm;
-  const state = item.state;
+/**
+ * Each item's best match and the next few: your foods, then the cache, then the sources. The items
+ * are looked up together, so a long sentence takes no more calls to D1 than a short one.
+ */
+async function matchItems(ctx, items, own, settings, on) {
   const found = (list, from) => (list.length ? { food: list[0], matchedFrom: from, alternatives: list.slice(1, 1 + ALTERNATIVES) } : null);
-  const mine = found(rankFoods(term, own, { state }), 'foods');
-  if (mine) return mine;
-  const cache = rankFoods(term, (await searchCached(ctx.store.db, term)).filter((f) => on[f.source]), { state });
-  if (cache.length) return found(cache, cache[0].source);
-  const { results } = await searchFoods(ctx, ctx.env, term, settings, { state });
-  return results.length ? found(results, results[0].source) : { food: null, matchedFrom: null, alternatives: [] };
+  const matches = items.map((it) => found(rankFoods(it.searchTerm, own, { state: it.state }), 'foods'));
+  const notMine = items.map((it, i) => i).filter((i) => !matches[i]);
+  const cache = await searchCachedMany(ctx.store.db, notMine.map((i) => items[i].searchTerm));
+  notMine.forEach((i, k) => {
+    const list = rankFoods(items[i].searchTerm, cache[k].filter((f) => on[f.source]), { state: items[i].state });
+    if (list.length) matches[i] = found(list, list[0].source);
+  });
+  const rest = notMine.filter((i) => !matches[i]);
+  const searched = rest.length ? await searchMany(ctx, ctx.env, rest.map((i) => ({ query: items[i].searchTerm, state: items[i].state })), settings) : [];
+  rest.forEach((i, k) => {
+    const { results } = searched[k];
+    matches[i] = results.length ? found(results, results[0].source) : { food: null, matchedFrom: null, alternatives: [] };
+  });
+  return matches;
 }
 
 /** Estimates for the items nothing matched, in their order (null where the model gave none). */
@@ -112,9 +123,10 @@ export async function parseFood(ctx, body, { origin = 'sentence' } = {}) {
   let callsLeft = parsed.callsLeft;
   const items = cleanParse(parsed.data, text);
   if (!items.length) throw refuse('no food was found in that. Try naming each food.', 422);
+  if (items.length > MAX_ITEMS) throw refuse(`log at most ${MAX_ITEMS} foods at a time. Split it in two.`, 422);
 
   // An item with the kcal you gave is still matched (a recipe or saved meal needs a food), but never estimated.
-  const matches = await Promise.all(items.map((it) => matchItem(ctx, it, own, settings, on)));
+  const matches = await matchItems(ctx, items, own, settings, on);
   const unmatched = items.map((it, i) => (matches[i].food || it.kcal ? null : i)).filter((i) => i != null);
   if (unmatched.length) {
     try {

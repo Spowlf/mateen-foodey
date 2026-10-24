@@ -197,3 +197,26 @@ test('cost guard: with the limit reached at the estimate step, matched items sti
   assert.deepEqual(res.body.items.map((i) => i.matchedFrom), ['cofid', null]);
   assert.equal(res.body.callsLeft, 0);
 });
+
+test('parse: a long sentence takes a few calls to D1, and over 20 foods is refused', async () => {
+  const names = Array.from({ length: 20 }, (_, i) => `Thing ${String.fromCharCode(97 + i)}`);
+  const w = makeWorker({
+    routes: {
+      'search.openfoodfacts.org': (u) => Response.json({ hits: [{ code: `5${u.searchParams.get('q').length}${u.searchParams.get('q').charCodeAt(6)}`, product_name: u.searchParams.get('q').split(' countries')[0], brands: 'Brand', nutriments: { 'energy-kcal_100g': 100 } }] }),
+      'api.nal.usda.gov': () => Response.json({ foods: [] }),
+    },
+    model: model(names.map((n) => item(n))),
+  });
+  await w.call('GET', '/sync?since=0');
+  const before = w.queries();
+  const res = await w.call('POST', '/parse', { body: { text: names.join(', ') } });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.items.filter((it) => it.matchedFrom === 'off').length, 20);
+  assert.ok(w.queries() - before <= 10, `${w.queries() - before} calls`);
+  assert.ok(w.calls.length + w.modelCalls.length <= 50);
+
+  w.model = model([...names, 'One more'].map((n) => item(n)));
+  const tooMany = await w.call('POST', '/parse', { body: { text: 'everything' } });
+  assert.equal(tooMany.status, 422);
+  assert.equal(tooMany.body.error, 'Nothing changed: log at most 20 foods at a time. Split it in two.');
+});

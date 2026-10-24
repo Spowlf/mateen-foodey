@@ -175,3 +175,21 @@ test('PUT: a saved meal item is a food or a recipe, and the recipe must be saved
   const ok = await w.call('PUT', '/savedMeals/m1', { body: { name: 'Lunch', items: [{ foodId: 'f-oats', grams: 40 }, { recipeId: 'r1', grams: 200 }] } });
   assert.equal(ok.status, 200);
 });
+
+test('batch: a few calls to D1 however many rows, within the Free plan’s 50 a request', async () => {
+  const w = makeWorker();
+  await w.call('GET', '/sync?since=0');
+  const foods = Array.from({ length: 150 }, (_, i) => ({ ...food({ sourceId: `s${i}`, name: `Food ${i}` }), id: `f${i}` }));
+  let before = w.queries();
+  assert.equal((await w.call('POST', '/batch', { body: { foods } })).status, 200);
+  assert.ok(w.queries() - before <= 4, `${w.queries() - before} calls`);
+  // Entries naming saved foods, as Copy to Today sends: each food's memory is updated too.
+  const entries = Array.from({ length: 300 }, (_, i) => ({ ...entry({ foodId: `f${i % 150}` }), id: `e${i}` }));
+  before = w.queries();
+  assert.equal((await w.call('POST', '/batch', { body: { entries } })).status, 200);
+  assert.ok(w.queries() - before <= 4, `${w.queries() - before} calls`);
+  assert.equal(w.rows('foods', 'id = ?', 'f7')[0].useCount, 2);
+  // A food that isn't saved is still refused.
+  const res = await w.call('POST', '/batch', { body: { entries: [{ ...entry({ foodId: 'nope' }), id: 'e-x' }] } });
+  assert.equal(res.status, 400);
+});

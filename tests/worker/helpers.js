@@ -65,6 +65,8 @@ export function makeWorker({ now = NOW, env: extra = {}, routes = {}, model = nu
     fetch: async (url, init) => handle(new Request(url, init), env, w.deps()),
     /** Rows straight from the database, skipping the API. */
     rows: (table, where = '1 = 1', ...params) => env.DB.raw.prepare(`SELECT * FROM "${table}" WHERE ${where}`).all(...params).map((r) => ({ ...r })),
+    /** How many calls to D1 requests have made so far (D1's Free plan allows 50 a request). */
+    queries: () => env.DB.queries,
     /** Runs SQL straight on the database. */
     exec: (sql, ...params) => env.DB.raw.prepare(sql).run(...params),
   };
