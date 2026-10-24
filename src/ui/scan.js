@@ -8,6 +8,19 @@ import { h, openSheet } from './dom.js';
 const DECODER = 'vendor/zxing-0.23.0.min.js';
 const EVERY_MS = 150;
 const CODE = /^\d{8,14}$/;
+const BAND = 0.6;          // the middle of the picture, top to bottom, where the hint asks for the barcode
+const MAX_WIDTH = 960;     // still several pixels to each bar of a barcode across half the picture
+
+/**
+ * The part of a camera frame ZXing reads, and the size it's read at: a band across the middle,
+ * scaled down to at most 960 px wide. Reading the whole full-size frame several times a second
+ * kept the phone busy and the sheet slow.
+ */
+export function scanArea(width, height) {
+  const sh = Math.round(height * BAND);
+  const scale = Math.min(1, MAX_WIDTH / width);
+  return { sx: 0, sy: Math.round((height - sh) / 2), sw: width, sh, width: Math.round(width * scale), height: Math.round(sh * scale) };
+}
 
 let decoderLoaded = null;
 function loadDecoder() {
@@ -32,20 +45,24 @@ async function makeReader(video) {
   }
   const Z = await loadDecoder();
   // The 1D reader itself, held to EAN / UPC: MultiFormatReader would log a warning for every frame with no barcode.
-  const hints = new Map([
-    [Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E]],
-    [Z.DecodeHintType.TRY_HARDER, true],
-  ]);
-  const reader = new Z.MultiFormatOneDReader(hints);
+  // Trying harder reads nearly every row and turns the picture, about 30 times the work on a frame
+  // with no barcode, so it's every fourth frame only: the rest read a handful of rows.
+  const formats = [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E];
+  const quick = new Map([[Z.DecodeHintType.POSSIBLE_FORMATS, formats]]);
+  const hard = new Map([...quick, [Z.DecodeHintType.TRY_HARDER, true]]);
+  const readers = [quick, hard].map((hints) => ({ hints, reader: new Z.MultiFormatOneDReader(hints) }));
+  let frame = 0;
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d', { willReadFrequently: true });
   return async () => {
     if (!video.videoWidth) return null;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0);
+    const area = scanArea(video.videoWidth, video.videoHeight);
+    canvas.width = area.width;
+    canvas.height = area.height;
+    context.drawImage(video, area.sx, area.sy, area.sw, area.sh, 0, 0, area.width, area.height);
     try {
       const bitmap = new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(canvas)));
+      const { reader, hints } = readers[++frame % 4 ? 0 : 1];
       return reader.decode(bitmap, hints).getText();
     } catch {
       return null;   // no barcode in this frame
