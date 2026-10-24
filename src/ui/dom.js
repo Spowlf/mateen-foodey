@@ -89,7 +89,13 @@ export function openSheet({ title, onClose = null }, ...content) {
   let closed = false;
   const done = () => { if (closed) return; closed = true; dialog.remove(); onClose?.(); };
   const close = () => { if (dialog.open) dialog.close(); done(); };
-  dialog.addEventListener('click', (e) => { if (e.target === dialog) close(); });
+  // A tap on the backdrop closes the sheet. The sheet's own padding is the dialog too, so the tap's
+  // place decides, or a tap just beside a key or button would close it.
+  dialog.addEventListener('click', (e) => {
+    if (e.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close();
+  });
   dialog.addEventListener('cancel', done);
   document.body.append(dialog);
   dialog.showModal();
