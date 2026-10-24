@@ -143,7 +143,10 @@ function sgFoodIdServings(...texts) {
  */
 export function fromSgFoodId(item) {
   const n = item?.baseFoodNutrients ?? {};
-  const name = text(item?.name)?.replace(/\s+/g, ' ') ?? null;
+  // Brackets become commas, innermost first, as CoFID writes its names: "Iced lemon tea (packaged)" → "Iced lemon tea, packaged".
+  let name = text(item?.name);
+  while (name && /\([^()]*\)/.test(name)) name = name.replace(/\s*\(([^()]*)\)/g, ', $1');
+  name = name?.replace(/\s+/g, ' ').replace(/,\s*$/, '') ?? null;
   return food({
     name,
     state: stateFromName(name),

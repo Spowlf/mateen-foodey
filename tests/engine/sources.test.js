@@ -132,6 +132,10 @@ test('import, SG FoodID: portion labels without "(s)" or brackets, and odd value
   assert.deepEqual(f('2 piece(s) = 53.4g', '1 bowl(s) = 300g; 1 small bowl(s) = 150g'), [{ label: '2 pieces', grams: 53 }, { label: '1 bowl', grams: 300 }, { label: '1 small bowl', grams: 150 }]);
   assert.deepEqual(f('-'), []);
   assert.deepEqual(fromSgFoodId({ ...KOPI, baseFoodNutrients: { energy: 'None', protein: -1 } }).per100g.kcalTenths, null);
+  // Brackets in names become commas, as CoFID writes its names.
+  assert.equal(fromSgFoodId({ ...KOPI, name: 'Black coffee (no sugar, sachet/filter bag)' }).name, 'Black coffee, no sugar, sachet/filter bag');
+  assert.equal(fromSgFoodId({ ...KOPI, name: 'Iced lemon tea  (packaged)' }).name, 'Iced lemon tea, packaged');
+  assert.equal(fromSgFoodId({ ...KOPI, name: 'Economic rice (1 vegetable, 2 meats (1 fried))' }).name, 'Economic rice, 1 vegetable, 2 meats, 1 fried');
   assert.equal(sgFoodIdValue(-1), 0);
   assert.equal(sgFoodIdValue(null), null);
   assert.equal(sgFoodIdValue('None'), null);
