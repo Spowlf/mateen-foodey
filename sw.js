@@ -1,7 +1,11 @@
-// Service worker: precache every file at install, then stale-while-revalidate for same-origin GETs,
-// and tell open pages when a file really changed ("Updated, tap to reload").
-// Refreshes ask the server ('no-cache'), since GitHub Pages lets browsers keep files for 10 minutes,
+// Service worker: precache every file at install and serve from the cache. Opening the app checks
+// every file against the server in the background, and open pages are told when one really changed
+// ("Updated, tap to reload").
+// Checks ask the server ('no-cache'), since GitHub Pages lets browsers keep files for 10 minutes,
 // with a query that's new each time, since its CDN ignores 'no-cache' and keeps old files as long.
+// Each sends the cached copy's ETag, so an unchanged file comes back empty (304) rather than whole.
+// The files are refreshed as a set: new copies are stored only once every file was reached, so a
+// check cut off halfway never leaves new modules beside old ones that no longer fit them.
 // The app also sends { type: 'check' } when it comes back to the screen, because a home screen app
 // resumed from the background fetches nothing, so it would otherwise never see an update.
 // "Update the app" in Settings sends the same check with a port, and reloads once it's answered.
@@ -119,25 +123,43 @@ async function announce() {
   for (const w of windows) w.postMessage({ type: 'updated' });
 }
 
-/** Fetches a file from the server and stores it. Resolves true if it differs from the cached copy. */
-async function refresh(cache, url) {
+/**
+ * Asks the server for a file, sending the cached copy's ETag. Resolves { ok, changed, res }: ok when
+ * the server answered with the file or "unchanged", changed when it differs from the cached copy,
+ * and res the copy to store (null when the cached one is current).
+ */
+async function ask(cache, url) {
   const cached = await cache.match(url, { ignoreSearch: true });
-  const res = await fetch(new Request(fresh(url), { cache: 'no-cache' }));
-  if (!res.ok) return { res, changed: false };
-  const changed = !!cached && !(await sameBody(cached, res.clone()));
-  await cache.put(url, res.clone());
-  return { res, changed };
+  const etag = cached?.headers.get('ETag');
+  const res = await fetch(new Request(fresh(url), { cache: 'no-cache', headers: etag ? { 'If-None-Match': etag } : {} }));
+  if (res.status === 304 && cached) return { ok: true, changed: false, res: null };
+  if (!res.ok) return { ok: false, changed: false, res: null };
+  return { ok: true, changed: !!cached && !(await sameBody(cached, res.clone())), res };
+}
+
+/**
+ * Checks every file and stores the new copies, but only once every file was reached. Announces a
+ * change. Resolves { reached, changed }. A check already running is shared, not started twice.
+ */
+let checking = null;
+function checkAll() {
+  checking ??= (async () => {
+    const cache = await caches.open(CACHE);
+    const urls = FILES.map((f) => new URL(f, self.location).href);
+    const results = await Promise.all(urls.map((url) => ask(cache, url).catch(() => null)));
+    const complete = results.every((r) => r?.ok);
+    if (complete) await Promise.all(results.map((r, i) => r.res && cache.put(urls[i], r.res)));
+    const changed = complete && results.some((r) => r.changed);
+    if (changed) await announce();
+    return { reached: results.some((r) => r?.ok), changed };
+  })().finally(() => { checking = null; });
+  return checking;
 }
 
 self.addEventListener('message', (event) => {
   if (event.data?.type !== 'check') return;
-  event.waitUntil(caches.open(CACHE).then(async (cache) => {
-    const results = await Promise.all(FILES.map((f) => refresh(cache, new URL(f, self.location).href).catch(() => null)));
-    const changed = results.some((r) => r?.changed);
-    if (changed) await announce();
-    // Settings asked: say whether the files could be reached at all.
-    event.ports?.[0]?.postMessage({ reached: results.some((r) => r?.res?.ok), changed });
-  }));
+  // Settings asked: say whether the files could be reached at all.
+  event.waitUntil(checkAll().then((answer) => event.ports?.[0]?.postMessage(answer)));
 });
 
 self.addEventListener('fetch', (event) => {
@@ -145,14 +167,14 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(caches.open(CACHE).then(async (cache) => {
     const cached = await cache.match(req, { ignoreSearch: true });
-    const latest = refresh(cache, req.url).then(async ({ res, changed }) => {
-      if (changed) await announce();
-      return res;
-    }).catch(() => null);
-    if (cached) { event.waitUntil(latest); return cached; }
-    const res = await latest;
-    if (res) return res;
+    if (cached) {
+      if (req.mode === 'navigate') event.waitUntil(checkAll().catch(() => {}));
+      return cached;
+    }
+    // A file not cached yet: from the server, kept for next time.
+    const res = await fetch(new Request(fresh(req.url), { cache: 'no-cache' })).catch(() => null);
+    if (res?.ok) { await cache.put(req.url, res.clone()); return res; }
     if (req.mode === 'navigate') return (await cache.match('index.html')) || Response.error();
-    return Response.error();
+    return res ?? Response.error();
   }));
 });

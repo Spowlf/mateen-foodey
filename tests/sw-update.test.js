@@ -1,6 +1,7 @@
 // The service worker's behaviour, run in node:vm with fake caches, clients and fetch:
-// the app opens from cache, each open refreshes the files in the background, and a file that
-// really changed is announced ("Updated, tap to reload") while an unchanged or new one is not.
+// the app opens from cache, each open checks every file in the background (an unchanged one comes
+// back empty, 304), a file that really changed is announced ("Updated, tap to reload") while an
+// unchanged or new one is not, and new copies are stored only once every file was reached.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,9 +14,9 @@ const BASE = `${ORIGIN}/mateen-foodey/`;
 
 /** A request as the worker sees it: a URL resolved against the app's folder, a mode, a cache mode. */
 class FakeRequest {
-  constructor(input, { method = 'GET', mode = 'no-cors', cache = 'default' } = {}) {
+  constructor(input, { method = 'GET', mode = 'no-cors', cache = 'default', headers = {} } = {}) {
     this.url = new URL(typeof input === 'string' ? input : input.url, BASE).href;
-    Object.assign(this, { method, mode, cache });
+    Object.assign(this, { method, mode, cache, headers });
   }
 }
 
@@ -26,6 +27,8 @@ function load(server = {}) {
   const announced = [];
   const fetched = [];
   let online = true;
+  const offline = new Set();   // files that can't be reached, though the server is
+  const etag = (body) => `"${[...body].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)}"`;
   const key = (req) => { const u = new URL(typeof req === 'string' ? req : req.url, BASE); u.search = ''; return u.href; };
   const self = {
     location: new URL(`${BASE}sw.js`),
@@ -36,10 +39,14 @@ function load(server = {}) {
       matchAll: async () => [{ postMessage: (m) => announced.push(m) }],
     },
     async fetch(req) {
-      fetched.push({ url: key(req), cache: req.cache });
-      if (!online) throw new TypeError('offline');
+      const sentTag = req.headers?.['If-None-Match'] ?? null;
       const path = key(req).slice(BASE.length) || './';
-      return path in server ? new Response(server[path]) : new Response('missing', { status: 404 });
+      if (!online || offline.has(path)) { fetched.push({ url: key(req), cache: req.cache, status: 'failed' }); throw new TypeError('offline'); }
+      if (!(path in server)) { fetched.push({ url: key(req), cache: req.cache, status: 404 }); return new Response('missing', { status: 404 }); }
+      const tag = etag(server[path]);
+      const status = sentTag === tag ? 304 : 200;
+      fetched.push({ url: key(req), cache: req.cache, status });
+      return new Response(status === 304 ? null : server[path], { status, headers: { ETag: tag } });
     },
     Request: FakeRequest, Response, URL, Uint8Array, Promise, console,
   };
@@ -74,6 +81,7 @@ function load(server = {}) {
   return {
     announced, fetched, stores, server,
     setOnline: (v) => { online = v; },
+    unreachable: (path) => offline.add(path),
     install: () => dispatch('install'),
     activate: () => dispatch('activate'),
     get: (path, mode = 'no-cors') => dispatch('fetch', { request: new FakeRequest(path, { mode }) }),
@@ -109,22 +117,49 @@ test('activate: old caches are dropped', async () => {
   assert.deepEqual([...sw.stores.keys()].filter((k) => k === 'mateen-foodey-v0'), []);
 });
 
-test('update: a changed file is served from cache now, stored, and announced once', async () => {
+test('update: opening the app serves the cache now, stores a changed file and announces it once', async () => {
   const sw = await installed();
   sw.server['src/app.js'] = 'v2 src/app.js';
-  const { res } = await sw.get('src/app.js');
-  assert.equal(await res.text(), 'v1 src/app.js');
+  const { res } = await sw.get('./', 'navigate');
+  assert.equal(await res.text(), 'v1 ./');
   assert.equal(sw.announced.length, 1);
   assert.equal(sw.announced[0].type, 'updated');
-  const again = await sw.get('src/app.js');
-  assert.equal(await again.res.text(), 'v2 src/app.js');
+  assert.equal(await (await sw.get('src/app.js')).res.text(), 'v2 src/app.js');
+  await sw.get('./', 'navigate');
   assert.equal(sw.announced.length, 1);
 });
 
-test('update: the background refresh asks the server, never the browser\'s HTTP cache', async () => {
+test('update: opening the app asks the server for every file, never the browser\'s HTTP cache', async () => {
+  const sw = await installed();
+  await sw.get('./', 'navigate');
+  assert.equal(sw.fetched.length, FILES.length);
+  assert.ok(sw.fetched.every((f) => f.cache === 'no-cache'));
+});
+
+test('update: a cached module is served without asking the server', async () => {
   const sw = await installed();
   await sw.get('src/app.js');
-  assert.deepEqual(sw.fetched.map((f) => [f.url.slice(BASE.length), f.cache]), [['src/app.js', 'no-cache']]);
+  assert.deepEqual(sw.fetched, []);
+});
+
+test('update: an unchanged file comes back empty (304), not whole', async () => {
+  const sw = await installed();
+  await sw.check();
+  assert.ok(sw.fetched.every((f) => f.status === 304));
+  sw.fetched.length = 0;
+  sw.server['styles.css'] = 'v2';
+  await sw.check();
+  assert.deepEqual(sw.fetched.filter((f) => f.status !== 304).map((f) => f.url.slice(BASE.length)), ['styles.css']);
+});
+
+test('update: a check that can\'t reach every file stores nothing, so old and new files never mix', async () => {
+  const sw = await installed();
+  sw.server['src/app.js'] = 'v2 src/app.js';
+  sw.server['src/db/repo.js'] = 'v2 src/db/repo.js';
+  sw.unreachable('src/db/repo.js');
+  await sw.check();
+  assert.deepEqual(sw.announced, []);
+  assert.equal(await (await sw.get('src/app.js')).res.text(), 'v1 src/app.js');
 });
 
 test('check: the app returning to the screen refreshes every file and announces a change once', async () => {
@@ -162,8 +197,8 @@ test('check: offline, nothing is announced and the cache is kept', async () => {
 
 test('update: an unchanged file is not announced', async () => {
   const sw = await installed();
-  await sw.get('styles.css');
-  await sw.get('index.html');
+  await sw.get('./', 'navigate');
+  await sw.check();
   assert.deepEqual(sw.announced, []);
 });
 
