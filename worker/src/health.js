@@ -1,6 +1,6 @@
 // POST /health, the Health Shortcut: { date, activeKcal, steps, weightKg, workouts: [{ start, type, minutes, kcal }] }.
 // It replaces the date's activity, adds each workout once (its id is its start and type, so running
-// the Shortcut again changes nothing), and saves the weight as the day's reading, unless you typed
+// the Shortcut again changes nothing, and a workout you deleted stays deleted), and saves the weight as the day's reading, unless you typed
 // that day's weight in the app: yours is never replaced. The date is the phone's.
 //
 // GET /health/weights?from=&to=: the weights you typed in the app between two of the phone's dates
@@ -41,9 +41,11 @@ export async function syncHealth(ctx, body) {
   }
 
   const [typed] = weightGrams == null ? [] : await ctx.store.all('weights', "date = ? AND source = 'manual' AND deletedAt IS NULL", date);
+  const { workouts: had } = await ctx.store.getMany({ workouts: workouts.map((w) => w.id) });
+  const kept = workouts.filter((w) => !had.get(w.id)?.deletedAt);
   await ctx.store.write({
     activity: [{ id: date, date, activeKcal, steps, source: 'health', deletedAt: null }],
-    workouts,
+    workouts: kept,
     weights: weightGrams == null || typed ? [] : [{ id: date, date, grams: weightGrams, source: 'health', deletedAt: null }],
   }, ctx.now);
 
@@ -52,7 +54,7 @@ export async function syncHealth(ctx, body) {
   if (activeKcal != null) parts.push(`${activeKcal.toLocaleString('en-GB')} active kcal`);
   if (steps != null) parts.push(`${steps.toLocaleString('en-GB')} ${steps === 1 ? 'step' : 'steps'}`);
   if (weightGrams != null) parts.push(formatWeight(typed?.grams ?? weightGrams, weightUnit));
-  if (workouts.length) parts.push(`${workouts.length} ${workouts.length === 1 ? 'workout' : 'workouts'}`);
+  if (kept.length) parts.push(`${kept.length} ${kept.length === 1 ? 'workout' : 'workouts'}`);
   return parts.length ? `Synced ${formatDayShort(date)}: ${parts.join(', ')}.` : `Synced ${formatDayShort(date)}: nothing from Health yet.`;
 }
 

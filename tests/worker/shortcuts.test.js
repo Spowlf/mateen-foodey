@@ -19,6 +19,16 @@ test('health: replaces the day’s activity and adds each workout once, however 
   assert.deepEqual(w.rows('weights').map((x) => [x.id, x.grams, x.source]), [['2026-10-12', 72400, 'health']]);
 });
 
+test('health: a workout you deleted stays deleted when the Shortcut runs again', async () => {
+  const w = makeWorker();
+  await w.call('POST', '/health', { body: health() });
+  const id = 'health:2026-10-12T07:10:00+01:00:Running';
+  await w.call('DELETE', `/workouts/${encodeURIComponent(id)}`);
+  const res = await w.call('POST', '/health', { body: health({ workouts: [...health().workouts, { start: '2026-10-12T18:00:00+01:00', type: 'Walking', minutes: 20, kcal: 80 }] }) });
+  assert.equal(res.body, 'Synced 12 Oct: 480 active kcal, 9,120 steps, 72.4 kg, 1 workout.');
+  assert.deepEqual(w.rows('workouts').map((x) => [x.type, x.deletedAt != null]).sort(), [['Running', true], ['Walking', false]]);
+});
+
 test('health: a run with no weight keeps the day’s reading; a field left out is cleared from the activity', async () => {
   const w = makeWorker();
   await w.call('POST', '/health', { body: health() });
