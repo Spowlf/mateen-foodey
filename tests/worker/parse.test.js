@@ -220,3 +220,10 @@ test('parse: a long sentence takes a few calls to D1, and over 20 foods is refus
   assert.equal(tooMany.status, 422);
   assert.equal(tooMany.body.error, 'Nothing changed: log at most 20 foods at a time. Split it in two.');
 });
+
+test('parse: an item can match SG FoodID in the cache', async () => {
+  const w = makeWorker({ routes: EMPTY, model: model([item('Kopi', { searchTerm: 'kopi' })]) });
+  seedCofid(w, [{ code: 'D09010035', name: 'Kopi', kcal: 77 }], 'sgfoodid');
+  const res = await w.call('POST', '/parse', { body: { text: 'a kopi' } });
+  assert.deepEqual([res.body.items[0].matchedFrom, res.body.items[0].food.sourceId], ['sgfoodid', 'D09010035']);
+});

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fromOff, fromCofid, fromUsda, kjToKcalTenths, saltFromSodiumMg, cofidValue, stateFromName } from '../../src/engine/sources.js';
+import { fromOff, fromCofid, fromUsda, fromSgFoodId, sgFoodIdValue, kjToKcalTenths, saltFromSodiumMg, cofidValue, stateFromName } from '../../src/engine/sources.js';
 import { amountsFor, kcalOf, gramsOf } from '../../src/engine/nutrition.js';
 
 // A UK loaf as Open Food Facts gives it. Its macros would come to 227 kcal; the label says 233.
@@ -103,4 +103,37 @@ test('state from a name', () => {
   assert.equal(stateFromName('Chicken breast, raw'), 'raw');
   assert.equal(stateFromName('Baked beans in tomato sauce'), 'cooked');
   assert.equal(stateFromName('Cornflakes'), 'asSold');
+});
+
+// Two foods as SG FoodID's details give them: a dish and a drink.
+const CHICKEN_RICE = {
+  crId: 'F05100133', name: 'Steamed chicken rice', category: 'Food', defaultWeight: 346, defaultPortion: '1 plate(s) = 346g', alternativePortions: '-',
+  baseFoodNutrients: { energy: 147, protein: 5.95, fat: 3.6, carbohydrate: 21.88, sugar: -1, dietaryFibre: 1.57, sodium: 380 },
+};
+const KOPI = {
+  crId: 'D09010035', name: 'Kopi', category: 'Drink', defaultWeight: 250, defaultPortion: '1 regular cup(s) = 250ml', alternativePortions: '1 large cup(s) = 300ml',
+  baseFoodNutrients: { energy: 77, protein: 0.65, fat: 2.18, carbohydrate: 13.73, sugar: 7.62, dietaryFibre: null, sodium: null },
+};
+
+test('import, SG FoodID: per 100 g with trace as 0 and no data as unknown, and its portions', () => {
+  const rice = fromSgFoodId(CHICKEN_RICE);
+  assert.deepEqual(rice.per100g, { kcalTenths: 1470, proteinMg: 5950, carbsMg: 21880, fatMg: 3600, fibreMg: 1570, sugarsMg: 0, saltMg: 950 });
+  assert.deepEqual([rice.name, rice.state, rice.source, rice.sourceId, rice.carbsIncludeFibre], ['Steamed chicken rice', 'cooked', 'sgfoodid', 'F05100133', false]);
+  assert.deepEqual(rice.servings, [{ label: '1 plate', grams: 346 }]);
+  const kopi = fromSgFoodId(KOPI);
+  assert.deepEqual([kopi.per100g.fibreMg, kopi.per100g.saltMg, kopi.per100g.sugarsMg], [null, null, 7620]);
+  // A drink's portions are in ml, taken as grams, as its figures per 100 ml are taken per 100 g.
+  assert.deepEqual(kopi.servings, [{ label: '1 regular cup', grams: 250 }, { label: '1 large cup', grams: 300 }]);
+});
+
+test('import, SG FoodID: portion labels without "(s)" or brackets, and odd values left out', () => {
+  const f = (defaultPortion, alternativePortions = '-') => fromSgFoodId({ ...KOPI, defaultPortion, alternativePortions }).servings;
+  assert.deepEqual(f('1 cup (200ml) = 200ml'), [{ label: '1 cup', grams: 200 }]);
+  assert.deepEqual(f('2 piece(s) = 53.4g', '1 bowl(s) = 300g; 1 small bowl(s) = 150g'), [{ label: '2 pieces', grams: 53 }, { label: '1 bowl', grams: 300 }, { label: '1 small bowl', grams: 150 }]);
+  assert.deepEqual(f('-'), []);
+  assert.deepEqual(fromSgFoodId({ ...KOPI, baseFoodNutrients: { energy: 'None', protein: -1 } }).per100g.kcalTenths, null);
+  assert.equal(sgFoodIdValue(-1), 0);
+  assert.equal(sgFoodIdValue(null), null);
+  assert.equal(sgFoodIdValue('None'), null);
+  assert.equal(sgFoodIdValue(-5), null);
 });

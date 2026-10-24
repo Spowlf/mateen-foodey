@@ -115,11 +115,11 @@ export function usdaFood(fdcId, description, kcal) {
   };
 }
 
-/** Puts CoFID foods straight into the cache, as the import script does. */
-export function seedCofid(w, foods) {
+/** Puts CoFID foods (or another imported source's) straight into the cache, as the import scripts do. */
+export function seedCofid(w, foods, source = 'cofid') {
   for (const f of foods) {
     w.exec(`INSERT INTO sourceFoods (id, source, sourceId, name, nameNorm, brand, barcode, state, per100g, carbsIncludeFibre, servings, fetchedAt)
-      VALUES (?, 'cofid', ?, ?, ?, NULL, NULL, ?, ?, 0, '[]', 0)`,
-    `cofid:${f.code}`, f.code, f.name, f.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(), f.state ?? 'asSold', JSON.stringify({ ...unknown, kcalTenths: f.kcal * 10 }));
+      VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, 0, '[]', 0)`,
+    `${source}:${f.code}`, source, f.code, f.name, f.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(), f.state ?? 'asSold', JSON.stringify({ ...unknown, kcalTenths: f.kcal * 10 }));
   }
 }

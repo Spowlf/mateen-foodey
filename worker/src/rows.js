@@ -35,7 +35,7 @@ function check(name, row) {
   switch (name) {
     case 'foods':
       if (!oneOf('raw', 'cooked', 'asSold')(row.state)) return 'pick raw, cooked or as sold.';
-      if (!oneOf('off', 'cofid', 'usda', 'custom', 'estimate')(row.source)) return 'pick where the food comes from.';
+      if (!oneOf('off', 'cofid', 'sgfoodid', 'usda', 'custom', 'estimate')(row.source)) return 'pick where the food comes from.';
       if (!validPer100g(row.per100g)) return 'enter nutrition per 100 g from 0 to 100 g, and energy up to 900 kcal.';
       if (!Array.isArray(row.servings) || !row.servings.every((s) => s && !blank(s.label) && int(s.grams, 1, MAX_GRAMS))) return 'give each serving a name and its grams.';
       if (!int(row.gramsPer100ml, 1, 300)) return 'enter how many grams 100 ml weighs.';

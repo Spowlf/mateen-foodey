@@ -9,10 +9,16 @@ import { ApiError } from '../errors.js';
 import {
   today, targetRowFor, targetFromSettings, settingProblem, typedWhole, maintenanceEstimate, adaptiveKcal, dailyChangeKcal,
   formatKcal, syncedPhrase, goalPhrase, TIMED_MEALS, mealName, DEFAULT_SETTINGS, GOAL_RATES_G, DEFAULT_FLOOR_KCAL,
+  SGFOODID_ACCESSED, SGFOODID_TERMS, formatDay,
 } from '../engine/index.js';
 
 const GOALS = { '-750': 'Lose 0.75 kg', '-500': 'Lose 0.5 kg', '-250': 'Lose 0.25 kg', 0: 'Maintain', 250: 'Gain 0.25 kg' };
-const SOURCES = [['off', 'Open Food Facts', 'Packaged UK foods and barcodes.'], ['cofid', 'CoFID', 'The UK government’s food tables.'], ['usda', 'USDA', 'The US food tables, for what the others lack.']];
+const SOURCES = [
+  ['off', 'Open Food Facts', 'Packaged UK foods and barcodes.'],
+  ['cofid', 'CoFID', 'The UK government’s food tables.'],
+  ['sgfoodid', 'SG FoodID', 'Singapore’s food tables, for its dishes and drinks.'],
+  ['usda', 'USDA', 'The US food tables, for what the others lack.'],
+];
 
 const numberInput = (attrs) => h('input', { class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'off', enterkeyhint: 'done', ...attrs });
 
@@ -148,7 +154,10 @@ export function renderSettings(root, { repo, onConnected }) {
           type: 'checkbox', checked: on[id],
           onchange: (e) => saveSetting('sources', { ...on, [id]: e.target.checked }, `${name} ${e.target.checked ? 'is on' : 'is off'}.`),
         })))),
-      h('p', { class: 'reason' }, 'Searches and sentence logging use the sources that are on. Your own foods are always searched first.'));
+      h('p', { class: 'reason' }, 'Searches and sentence logging use the sources that are on. Your own foods are always searched first.'),
+      // SG FoodID's licence asks for this notice, with a link to its terms.
+      h('p', { class: 'reason' }, `Contains information from the Singapore Food Insights Database, SG FoodID, accessed on ${formatDay(SGFOODID_ACCESSED)} from the Health Promotion Board and made available under its terms. It’s provided as is, with no warranty that it’s accurate or complete.`),
+      h('div', {}, h('a', { class: 'text-button', href: SGFOODID_TERMS, target: '_blank', rel: 'noopener noreferrer' }, 'SG FoodID Terms')));
   }
 
   function backupSection() {

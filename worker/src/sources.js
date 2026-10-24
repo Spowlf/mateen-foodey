@@ -1,5 +1,5 @@
-// Food search and barcode lookup: the source cache (CoFID's import and every food looked up), then
-// Open Food Facts and USDA FoodData Central. Only the Worker calls them, never the phone.
+// Food search and barcode lookup: the source cache (CoFID's and SG FoodID's imports and every food
+// looked up), then Open Food Facts and USDA FoodData Central. Only the Worker calls them, never the phone.
 //
 // A search asked again within 7 days is answered from searchCache and sourceFoods without asking
 // Open Food Facts or USDA. A barcode is looked up again after 30 days. A food fetched again
@@ -21,6 +21,8 @@ const TIMEOUT_MS = 8000;
 export const USER_AGENT = 'MateenFoodey/1.0 (https://github.com/spowlf/mateen-foodey)';
 const OFF_FIELDS = 'code,product_name,product_name_en,generic_name,brands,serving_size,serving_quantity,serving_quantity_unit,nutriments';
 const USDA_TYPES = ['Foundation', 'SR Legacy', 'Survey (FNDDS)'];
+// Sources imported whole into the cache, in the order their foods are shown, before the ones asked live.
+const IMPORTED = ['cofid', 'sgfoodid'];
 
 /** A food from the cache, as the API sends it (no id: the phone gives it one when it's logged). */
 function fromCache(row) {
@@ -126,6 +128,7 @@ export async function searchCachedMany(db, queries) {
 /** Which sources are on: the sources setting, and USDA only with its key. */
 export const sourcesOn = (settings, env) => ({
   cofid: settings.sources?.cofid !== false,
+  sgfoodid: settings.sources?.sgfoodid !== false,
   off: settings.sources?.off !== false,
   usda: settings.sources?.usda !== false && !!env.USDA_API_KEY,
 });
@@ -136,10 +139,10 @@ const rememberStatement = (db, id, source, norm, foods, now) => db.prepare(`INSE
   .bind(id, source, norm, JSON.stringify(foods.map(sourceKey)), now);
 
 /**
- * Searches for several queries ([{ query, state }]) at once: for each, CoFID, then Open Food Facts,
- * then USDA, each best first and only foods whose names hold every word. A source that can't be
+ * Searches for several queries ([{ query, state }]) at once: for each, CoFID, then SG FoodID, then
+ * Open Food Facts, then USDA, each best first and only foods whose names hold every word. A source that can't be
  * reached is left out and named in unavailable. Four calls to D1 at most, however many queries:
- * CoFID and the recent searches, the cached foods they found, then your foods and the write.
+ * the imported sources and the recent searches, the cached foods they found, then your foods and the write.
  * Returns [{ results: [Food], unavailable: ['off' | 'usda'] }] in the queries' order.
  */
 export async function searchMany(ctx, env, queries, settings) {
@@ -150,12 +153,12 @@ export async function searchMany(ctx, env, queries, settings) {
   const sources = ['off', 'usda'].filter((source) => on[source]);
   const searches = norms.flatMap((norm) => sources.map((source) => ({ id: `${source}:${norm}`, source, norm })));
 
-  const cofidStatements = on.cofid ? norms.map((norm) => wordsStatement(db, norm, 'cofid')) : [];
+  const imports = IMPORTED.filter((source) => on[source]).flatMap((source) => norms.map((norm) => ({ key: `${source}:${norm}`, st: wordsStatement(db, norm, source) })));
   const cacheStatements = chunks(searches.map((s) => s.id)).map((part) => db.prepare(`SELECT * FROM searchCache WHERE id IN (${marks(part)})`).bind(...part));
-  const reads = [...cofidStatements.filter(Boolean), ...cacheStatements];
+  const reads = [...imports.map((i) => i.st).filter(Boolean), ...cacheStatements];
   const out = reads.length ? await db.batch(reads) : [];
   let k = 0;
-  const cofid = new Map(cofidStatements.map((st, i) => [norms[i], st ? out[k++].results.map(fromCache) : []]));
+  const imported = new Map(imports.map(({ key, st }) => [key, st ? out[k++].results.map(fromCache) : []]));
   const hits = new Map(out.slice(k).flatMap((r) => r.results)
     .filter((row) => ctx.now - row.fetchedAt < SEARCH_FRESH_MS).map((row) => [row.id, JSON.parse(row.sourceFoodIds)]));
 
@@ -191,7 +194,7 @@ export async function searchMany(ctx, env, queries, settings) {
 
   return asks.map(({ norm, state }) => {
     if (!norm) return { results: [], unavailable: [] };
-    const lists = [cofid.get(norm) ?? [], found.get(`off:${norm}`) ?? [], found.get(`usda:${norm}`) ?? []];
+    const lists = [...IMPORTED.map((source) => imported.get(`${source}:${norm}`) ?? []), found.get(`off:${norm}`) ?? [], found.get(`usda:${norm}`) ?? []];
     return { results: lists.flatMap((list) => rankFoods(norm, list, { state }).slice(0, PER_SOURCE)), unavailable: unavailable.get(norm).sort() };
   });
 }

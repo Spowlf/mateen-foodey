@@ -4,6 +4,7 @@
 // In the app's Settings use the address http://localhost:8787 and the token printed below.
 // Sentence logging and USDA search need ANTHROPIC_API_KEY and USDA_API_KEY in .dev.vars (git ignores it).
 // CoFID search needs the import once: node scripts/import-cofid.js <file.xlsx> --apply --local
+// SG FoodID's too: node scripts/import-sgfoodid.js --apply --local
 //
 //   npm run dev
 //

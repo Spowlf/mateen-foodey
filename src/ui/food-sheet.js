@@ -9,7 +9,7 @@ import {
   per100gFromText, per100gText, servingsFromText, customFood, editedFood, today, mealName, formatGrams, titleCase, NUTRIENTS, nameCase,
 } from '../engine/index.js';
 
-const SOURCES = { off: 'Open Food Facts', cofid: 'CoFID', usda: 'USDA' };
+const SOURCES = { off: 'Open Food Facts', cofid: 'CoFID', sgfoodid: 'SG FoodID', usda: 'USDA' };
 const STATES = [{ value: 'raw', label: 'Raw' }, { value: 'cooked', label: 'Cooked' }, { value: 'asSold', label: 'As Sold' }];
 const NUTRIENT_LABELS = { protein: 'Protein g', carbs: 'Carbs g', fat: 'Fat g', fibre: 'Fibre g', sugars: 'Sugars g', salt: 'Salt g' };
 

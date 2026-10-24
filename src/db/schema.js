@@ -52,7 +52,7 @@ export const STORES = {
  * @property {0|1} carbsIncludeFibre
  * @property {{ label: string, grams: number }[]} servings   ("1 slice", 36)
  * @property {number} gramsPer100ml   for liquids typed in ml; 100 for water
- * @property {'off'|'cofid'|'usda'|'custom'|'estimate'} source
+ * @property {'off'|'cofid'|'sgfoodid'|'usda'|'custom'|'estimate'} source
  * @property {string|null} sourceId   one live food per source:sourceId
  * @property {number|null} fetchedAt  ms, when the source was read
  * @property {string|null} assumptions  for estimates: what the estimate rests on
@@ -113,5 +113,5 @@ export const STORES = {
  *   exerciseAddBackPct  50 (fixed mode)
  *   mealTimes           { breakfast, lunch, dinner } as 'HH:MM'; snacks have no time (see src/engine/meals.js)
  *   weightUnit          'kg' | 'stlb'
- *   sources             { off, cofid, usda } each true or false
+ *   sources             { off, cofid, sgfoodid, usda } each true or false
  */

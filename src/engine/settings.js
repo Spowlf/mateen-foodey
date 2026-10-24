@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   exerciseAddBackPct: DEFAULT_ADD_BACK_PCT,
   mealTimes: { ...DEFAULT_MEAL_TIMES },
   weightUnit: 'kg',
-  sources: { off: true, cofid: true, usda: true },
+  sources: { off: true, cofid: true, sgfoodid: true, usda: true },
 });
 
 // What's wrong with each setting's value, as the end of "Nothing changed: …", or null.
@@ -26,7 +26,9 @@ const CHECKS = {
     return times.every((t, i) => i === 0 || t > times[i - 1]) ? null : 'put the meal times in order through the day.';
   },
   weightUnit: (v) => (v === 'kg' || v === 'stlb' ? null : 'pick kg or st lb.'),
-  sources: (v) => (v && ['off', 'cofid', 'usda'].every((s) => typeof v[s] === 'boolean') ? null : 'turn each food source on or off.'),
+  // SG FoodID came later: a value saved before it, or sent by an app from before it, leaves it on.
+  sources: (v) => (v && ['off', 'cofid', 'usda'].every((s) => typeof v[s] === 'boolean') && (v.sgfoodid === undefined || typeof v.sgfoodid === 'boolean')
+    ? null : 'turn each food source on or off.'),
 };
 
 /** What's wrong with a setting, or null when it can be saved. */

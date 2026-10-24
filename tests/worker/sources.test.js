@@ -34,6 +34,19 @@ test('search: CoFID first, then Open Food Facts, then USDA, only foods with ever
   assert.equal(usda.id, undefined);            // the phone gives it an id when it's logged
 });
 
+test('search: SG FoodID comes after CoFID and before Open Food Facts, and can be turned off', async () => {
+  const w = makeWorker({ routes: sources({ off: [offProduct('5000000000001', 'Free range eggs', 140)] }) });
+  seedCofid(w, [{ code: '12-001', name: 'Eggs, chicken, whole, raw', kcal: 131, state: 'raw' }]);
+  seedCofid(w, [{ code: 'F01050005', name: 'Fried egg', kcal: 234, state: 'cooked' }, { code: 'D09010035', name: 'Kopi', kcal: 77 }], 'sgfoodid');
+  const res = await w.call('GET', '/search?q=egg');
+  assert.deepEqual(res.body.results.map((f) => [f.source, f.name]), [['cofid', 'Eggs, chicken, whole, raw'], ['sgfoodid', 'Fried egg'], ['off', 'Free range eggs']]);
+  // A sources setting saved before SG FoodID leaves it on; turned off, it's left out.
+  await w.call('PUT', '/settings/sources', { body: { value: { off: true, cofid: true, usda: true } } });
+  assert.ok((await w.call('GET', '/search?q=egg')).body.results.some((f) => f.source === 'sgfoodid'));
+  await w.call('PUT', '/settings/sources', { body: { value: { off: true, cofid: true, sgfoodid: false, usda: true } } });
+  assert.ok(!(await w.call('GET', '/search?q=egg')).body.results.some((f) => f.source === 'sgfoodid'));
+});
+
 test('search: sources get an identifying User-Agent, and the USDA key goes in a header, not the address', async () => {
   const w = makeWorker({ routes: sources() });
   await w.call('GET', '/search?q=eggs');

@@ -1,5 +1,6 @@
 // Turning a source's record into a food with per-100 g integers, once, when it's cached.
-// Shared by the Worker (Open Food Facts and USDA lookups) and scripts/import-cofid.js.
+// Shared by the Worker (Open Food Facts and USDA lookups), scripts/import-cofid.js and
+// scripts/import-sgfoodid.js.
 //
 // - Energy is the source's own kcal, never worked out from the macros. Given only in kJ: kJ ÷ 4.184.
 // - Carbs follow UK / EU labels, fibre excluded. USDA's carbs (by difference) include fibre, so fibre
@@ -103,6 +104,61 @@ export function fromCofid(row) {
     },
     source: 'cofid',
     sourceId: text(row?.code),
+  });
+}
+
+/**
+ * When SG FoodID's data was copied (scripts/import-sgfoodid.js), for the notice its licence asks for
+ * in Settings. Changed when the import is run again.
+ */
+export const SGFOODID_ACCESSED = '2026-10-24';
+export const SGFOODID_TERMS = 'https://go.gov.sg/termsofuse-hpbsgfoodid';
+
+/** An SG FoodID value: -1 is "Trace" (0); null or "None" is "-", no data (unknown). */
+export function sgFoodIdValue(v) {
+  if (v === -1) return 0;
+  return value(v);
+}
+
+/**
+ * SG FoodID's portions ("1 plate(s) = 346g", "1 regular cup(s) = 250ml"), as servings. A drink's ml
+ * are taken as grams, as its figures per 100 ml are taken per 100 g. Brackets are left out of labels.
+ */
+function sgFoodIdServings(...texts) {
+  const out = [];
+  for (const t of texts) {
+    for (const [, count, what, amount] of String(t ?? '').matchAll(/(\d+(?:\.\d+)?)\s+([^=;,]+?)\s*=\s*(\d+(?:\.\d+)?)\s*(?:g|ml)\b/gi)) {
+      const thing = what.replace(/\(s\)/g, Number(count) === 1 ? '' : 's').replace(/\s*\([^)]*\)/g, '').trim();
+      const grams = Math.round(Number(amount));
+      if (thing && grams > 0) out.push({ label: `${count} ${thing}`, grams });
+    }
+  }
+  return out;
+}
+
+/**
+ * A food from SG FoodID (Singapore's Health Promotion Board), as its details give it: figures per
+ * 100 g (per 100 ml for drinks), sodium in mg. Its carbs leave fibre out, as UK labels do: protein,
+ * fat and carbs at 4, 9 and 4 kcal a gram, with fibre at 2, come to its energy.
+ */
+export function fromSgFoodId(item) {
+  const n = item?.baseFoodNutrients ?? {};
+  const name = text(item?.name)?.replace(/\s+/g, ' ') ?? null;
+  return food({
+    name,
+    state: stateFromName(name),
+    per100g: {
+      kcalTenths: tenths(sgFoodIdValue(n.energy)),
+      proteinMg: mg(sgFoodIdValue(n.protein)),
+      carbsMg: mg(sgFoodIdValue(n.carbohydrate)),
+      fatMg: mg(sgFoodIdValue(n.fat)),
+      fibreMg: mg(sgFoodIdValue(n.dietaryFibre)),
+      sugarsMg: mg(sgFoodIdValue(n.sugar)),
+      saltMg: saltFromSodiumMg(sgFoodIdValue(n.sodium)),
+    },
+    servings: sgFoodIdServings(item?.defaultPortion, item?.alternativePortions),
+    source: 'sgfoodid',
+    sourceId: text(item?.crId),
   });
 }
 

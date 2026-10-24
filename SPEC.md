@@ -10,7 +10,7 @@ Right after eating, phone in one hand. A regular food or meal takes two taps; an
 
 - Cloudflare Workers + D1. Every route needs the bearer token; CORS limits browsers to the GitHub Pages origin. The Worker validates every body and never logs the token or food data.
 - Worker secrets: `API_TOKEN`, `ANTHROPIC_API_KEY`, `USDA_API_KEY`. Never in the repo.
-- Food sources, called by the Worker: Open Food Facts (barcodes, branded UK foods; identifying User-Agent), CoFID (imported into D1 by `scripts/import-cofid.js`, which needs `--apply`), USDA FoodData Central. Looked-up foods are cached in D1 with `fetchedAt`.
+- Food sources, called by the Worker: Open Food Facts (barcodes, branded UK foods; identifying User-Agent), CoFID (imported into D1 by `scripts/import-cofid.js`, which needs `--apply`), SG FoodID (Singapore's Health Promotion Board, imported by `scripts/import-sgfoodid.js`, which reads its website's JSON; its licence notice is in Settings), USDA FoodData Central. Search shows CoFID, then SG FoodID, then Open Food Facts, then USDA. Looked-up foods are cached in D1 with `fetchedAt`.
 - **Idempotent saves**: client-generated ids, `PUT /<table>/:id`; a body whose `id` differs from the URL's is rejected.
 - **Dates**: the phone decides. Entries carry the local date at logging; Shortcuts send the phone's date; summary requests send the phone's timestamp with its offset. The Worker never works out "today", except the cost guard's UTC day.
 - **Offline**: service worker caches the app; IndexedDB caches the last sync; the app opens read-only with "Last synced [time]". Saving needs a connection. Log keeps one offline draft ("Not synced") that no app logic or failed request discards.
@@ -24,6 +24,7 @@ Right after eating, phone in one hand. A regular food or meal takes two taps; an
 - **Energy**: the source's own kcal, never recalculated from macros. kJ only: kcal = kJ ÷ 4.184. USDA: 208, then Atwater Specific (958), then Atwater General (957), then kJ.
 - **Carbs** follow UK / EU labels, fibre excluded. USDA carbs become carbs − fibre when fibre is known; otherwise kept, fibre `null`, marked `carbsIncludeFibre` ("Carbs may include fibre.").
 - **CoFID**: "Tr" is 0; "N" and blanks are unknown. Fibre is AOAC (unknown when only NSP is given). Carbs kept as given (monosaccharide equivalents, a few percent above labels for starchy foods).
+- **SG FoodID**: "Trace" (-1) is 0; "no data" is unknown. Carbs already leave fibre out. Drinks' figures per 100 ml are taken per 100 g, and their ml portions as grams.
 - **Open Food Facts**: as-sold (`_100g`) values only; prepared values are never mixed in.
 - **Salt** from sodium only: sodium × 2.5.
 - Body weight in integer grams.
@@ -46,7 +47,7 @@ Right after eating, phone in one hand. A regular food or meal takes two taps; an
 - **Saved meals**: "Log a Saved Meal" lists them; a tap logs one to the chosen meal, with Undo.
 - **Sentence logging** ("two eggs, toast, flat white"), five steps:
   1. **Parse**: `POST /parse` sends the text to Claude Haiku 5.5 (`claude-haiku-5-5`) with the 30 most-logged foods. A JSON schema returns `[{ name, quantity, unit, grams, gramsAssumed, state, searchTerm }]`. No nutrition, except kcal the sentence itself gives ("Popeyes 2 piece 780 kcal"), logged as a quick add.
-  2. **Match**: your foods, then the cache, then Open Food Facts, CoFID and USDA.
+  2. **Match**: your foods, then the cache (CoFID, SG FoodID and foods looked up before), then Open Food Facts and USDA.
   3. **Estimate**: unmatched items only; per-100 g nutrition with its assumptions, saved as an `estimate` food.
   4. **Review**: the check sheet shows each match (tap to swap, or Estimate Instead via `POST /estimate`), grams on a number pad, kcal and macros, Remove, and what's uncertain ("~ Estimated nutrition", "~ Portion guessed"). Edited grams become `typed`. Button: "Log 3 Items".
   5. **Record**: entries with copied nutrition, bases and assumptions.
@@ -124,7 +125,7 @@ Monday morning, covering the previous Monday to Sunday.
 ## Named rules to test
 
 - Scaling per-100 g nutrition by grams in integer units, rounding once.
-- Import per source (Open Food Facts, CoFID, USDA), per 100 g and for a portion, including CoFID "Tr" / "N" and USDA's energy order.
+- Import per source (Open Food Facts, CoFID, SG FoodID, USDA), per 100 g and for a portion, including CoFID "Tr" / "N", SG FoodID's trace and no data, and USDA's energy order.
 - kJ to kcal; source energy never recalculated. USDA carbs minus fibre, or kept and marked. Salt from sodium × 2.5.
 - Unknown nutrients stay unknown through scaling, totals, recipes and display.
 - Entries keep copied nutrition and assumptions when the food or recipe changes.

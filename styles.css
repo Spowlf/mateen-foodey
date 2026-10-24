@@ -428,6 +428,8 @@ main {
   min-height: 40px; padding: 0 var(--s3); margin-left: calc(-1 * var(--s3));
   border: 0; border-radius: 10px; background: transparent; color: var(--accent); font-weight: 700; cursor: pointer;
 }
+/* A link out of the app (a licence's terms) looks like the text buttons beside it. */
+a.text-button { display: inline-flex; align-items: center; text-decoration: none; }
 .text-button:active { background: var(--accent-soft); color: var(--accent-press); }
 @media (hover: hover) { .text-button:hover { background: var(--accent-soft); color: var(--accent-press); } }
 .text-button:disabled { color: var(--ink-2); background: transparent; cursor: default; }

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS foods (
   carbsIncludeFibre INTEGER NOT NULL DEFAULT 0,
   servings TEXT NOT NULL DEFAULT '[]',
   gramsPer100ml INTEGER NOT NULL DEFAULT 100,
-  source TEXT NOT NULL CHECK (source IN ('off', 'cofid', 'usda', 'custom', 'estimate')),
+  source TEXT NOT NULL CHECK (source IN ('off', 'cofid', 'sgfoodid', 'usda', 'custom', 'estimate')),
   sourceId TEXT,
   fetchedAt INTEGER,
   assumptions TEXT,
@@ -195,11 +195,11 @@ CREATE INDEX IF NOT EXISTS settings_rev ON settings (rev);
 
 -- Worker only (not synced) ------------------------------------------------------------------
 
--- The source cache: CoFID's import, plus every Open Food Facts and USDA food looked up.
+-- The source cache: CoFID's and SG FoodID's imports, plus every Open Food Facts and USDA food looked up.
 -- id = '<source>:<sourceId>'. Search uses nameNorm (src/engine/match.js).
 CREATE TABLE IF NOT EXISTS sourceFoods (
   id TEXT PRIMARY KEY,
-  source TEXT NOT NULL CHECK (source IN ('off', 'cofid', 'usda')),
+  source TEXT NOT NULL CHECK (source IN ('off', 'cofid', 'sgfoodid', 'usda')),
   sourceId TEXT NOT NULL,
   name TEXT NOT NULL,
   nameNorm TEXT NOT NULL,

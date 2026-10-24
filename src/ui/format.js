@@ -16,7 +16,7 @@ export async function runAction(fn) {
   }
 }
 
-const SOURCES = { off: 'Open Food Facts', cofid: 'CoFID', usda: 'USDA', custom: 'Your food', estimate: 'Estimate' };
+const SOURCES = { off: 'Open Food Facts', cofid: 'CoFID', sgfoodid: 'SG FoodID', usda: 'USDA', custom: 'Your food', estimate: 'Estimate' };
 const STATES = { raw: 'raw', cooked: 'cooked', asSold: 'as sold' };
 
 /** "Hovis, Open Food Facts, 233 kcal per 100 g" (the food's name is shown beside it). */

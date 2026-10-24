@@ -10,7 +10,7 @@ test('sync: the first request seeds default settings, once', async () => {
   assert.equal(body.today, undefined);   // the Worker never works out today
   const settings = Object.fromEntries(body.changes.settings.map((s) => [s.id, s.value]));
   assert.deepEqual(settings, {
-    floorKcal: 1500, exerciseAddBackPct: 50, weightUnit: 'kg', sources: { off: true, cofid: true, usda: true },
+    floorKcal: 1500, exerciseAddBackPct: 50, weightUnit: 'kg', sources: { off: true, cofid: true, sgfoodid: true, usda: true },
     mealTimes: { breakfast: '04:00', lunch: '12:00', dinner: '18:00' },
   });
   await w.call('PUT', '/settings/floorKcal', { body: { value: 1600 } });
@@ -192,4 +192,11 @@ test('batch: a few calls to D1 however many rows, within the Free plan’s 50 a 
   // A food that isn't saved is still refused.
   const res = await w.call('POST', '/batch', { body: { entries: [{ ...entry({ foodId: 'nope' }), id: 'e-x' }] } });
   assert.equal(res.status, 400);
+});
+
+test('PUT: a food from SG FoodID can be saved', async () => {
+  const w = makeWorker();
+  const res = await w.call('PUT', '/foods/f-kopi', { body: food({ name: 'Kopi', source: 'sgfoodid', sourceId: 'D09010035', state: 'asSold' }) });
+  assert.equal(res.status, 200);
+  assert.equal(w.rows('foods')[0].source, 'sgfoodid');
 });
