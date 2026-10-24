@@ -53,7 +53,8 @@ export function createFoodSearch({ repo, onPick, extra = () => [] }) {
       const missing = unavailable.map((s) => UNAVAILABLE[s]).filter(Boolean);
       next = { query: q, results, note: missing.length ? `${missing.join(' and ')} couldn’t be reached, so ${missing.length === 1 ? 'its foods aren’t' : 'their foods aren’t'} shown.` : null };
     } catch (err) {
-      next = { query: q, results: [], note: err instanceof OfflineError ? 'You’re offline, so only your foods are shown.' : err.message };
+      // Shown, but not kept as the answer: the same words are asked again once back online.
+      next = { query: q, results: [], note: err instanceof OfflineError ? 'You’re offline, so only your foods are shown.' : err.message, failed: true };
     }
     if (asked !== q) return;   // a newer search has started
     remote = next;
@@ -66,7 +67,7 @@ export function createFoodSearch({ repo, onPick, extra = () => [] }) {
       clearTimeout(timer);
       const q = normaliseName(query);
       render(query, state);
-      if (q.length < MIN_QUERY || remote.query === q || !repo.connected()) return;
+      if (q.length < MIN_QUERY || (remote.query === q && !remote.failed) || !repo.connected()) return;
       timer = setTimeout(() => ask(q, query, state), SEARCH_PAUSE_MS);
     },
     clear() {
